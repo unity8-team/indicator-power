@@ -620,7 +620,7 @@ get_primary_device (GVariant *devices)
   gchar *device_icon;
   gdouble percentage;
   guint64 time;
-  guint64 min_discharging_time = G_MAXUINT64;
+  guint64 max_discharging_time = 0;
   guint64 max_charging_time = 0;
   gsize n_devices;
   guint i;
@@ -655,9 +655,9 @@ get_primary_device (GVariant *devices)
       if (state == UP_DEVICE_STATE_DISCHARGING)
         {
           discharging = TRUE;
-          if (time < min_discharging_time)
+          if (time > max_discharging_time)
             {
-              min_discharging_time = time;
+              max_discharging_time = time;
               primary_device_discharging = device;
             }
         }
