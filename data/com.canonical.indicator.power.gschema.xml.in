@@ -11,7 +11,7 @@
         <choice value='when-charging'/>
         <choice value='never'/>
       </choices>
-      <default>'when-charging'</default>
+      <default>'battery-present'</default>
       <_summary>Show indicator in Menu Bar</_summary>
       <_description>When to show the indicator in the menu bar.</_description>
     </key>
