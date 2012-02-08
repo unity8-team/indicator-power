@@ -83,6 +83,7 @@ struct _IndicatorPowerPrivate
 
   GVariant *devices;
   GVariant *device;
+  UpDeviceState device_state;
 
   GSettings *settings;
 };
@@ -549,6 +550,56 @@ menu_add_devices (GtkMenu  *menu,
 }
 
 static gboolean
+get_show_icon (IndicatorPower *self)
+{
+  IndicatorPowerPrivate *priv = self->priv;
+  gchar *mode;
+  gboolean rv = FALSE;
+
+  mode = g_settings_get_string (priv->settings, "show-indicator");
+
+  if (g_strcmp0 (mode, "battery-present") == 0)
+    rv = priv->device != NULL;
+  else if (g_strcmp0 (mode, "when-charging") == 0)
+    rv = priv->device_state == UP_DEVICE_STATE_CHARGING ||
+         priv->device_state == UP_DEVICE_STATE_DISCHARGING;
+  else if (g_strcmp0 (mode, "never") == 0)
+    rv = FALSE;
+
+  g_free (mode);
+  return rv;
+}
+
+static gboolean
+get_show_time (IndicatorPower *self)
+{
+  IndicatorPowerPrivate *priv = self->priv;
+
+  if (!get_show_icon (self))
+    return FALSE;
+
+  return g_settings_get_boolean (priv->settings, "show-time");
+}
+
+static void
+update_visibility (IndicatorPower *self)
+{
+  IndicatorPowerPrivate *priv = self->priv;
+
+  if (priv->status_image != NULL)
+    {
+      gboolean visible = get_show_icon (self);
+      gtk_widget_set_visible (GTK_WIDGET (priv->status_image), visible);
+    }
+
+  if (priv->label != NULL)
+    {
+      gboolean visible = get_show_time (self);
+      gtk_widget_set_visible (GTK_WIDGET (priv->label), visible);
+    }
+}
+
+static gboolean
 get_greeter_mode (void)
 {
   const gchar *var;
@@ -724,13 +775,13 @@ put_primary_device (IndicatorPower *self,
 
   g_debug ("%s: got data from object %s", G_STRFUNC, object_path);
 
+  priv->device_state = state;
+
   /* set icon */
   device_gicons = get_device_icon (kind, state, time, device_icon);
   gtk_image_set_from_gicon (priv->status_image,
                             device_gicons,
                             GTK_ICON_SIZE_LARGE_TOOLBAR);
-  gtk_widget_show (GTK_WIDGET (priv->status_image));
-
 
   /* get the device name */
   device_name = device_kind_to_localised_string (kind);
@@ -741,6 +792,9 @@ put_primary_device (IndicatorPower *self,
   gtk_label_set_label (GTK_LABEL (priv->label),
                        short_details);
   set_accessible_desc (self, accesible_name);
+
+  /* Show icon/label if requested */
+  update_visibility (self);
 
   g_free (short_details);
   g_free (details);
@@ -774,6 +828,9 @@ get_devices_cb (GObject      *source_object,
   if (priv->device == NULL)
     {
       g_printerr ("Error getting primary device");
+
+      priv->device_state = UP_DEVICE_STATE_UNKNOWN;
+      update_visibility (self);
 
       return;
     }
@@ -884,6 +941,8 @@ indicator_power_init (IndicatorPower *self)
   /* Init variables */
   priv->menu = NULL;
   priv->accessible_desc = NULL;
+  priv->device = NULL;
+  priv->device_state = UP_DEVICE_STATE_UNKNOWN;
 
 
   priv->watcher_id = g_bus_watch_name (G_BUS_TYPE_SESSION,
@@ -896,11 +955,26 @@ indicator_power_init (IndicatorPower *self)
 
   /* GSettings */
   priv->settings = g_settings_new ("com.canonical.indicator.power");
+
+  g_signal_connect_swapped (priv->settings, "changed::show-time",
+                            G_CALLBACK (update_visibility), self);
+  g_signal_connect_swapped (priv->settings, "changed::show-indicator",
+                            G_CALLBACK (update_visibility), self);
 }
 
 static void
 indicator_power_dispose (GObject *object)
 {
+  IndicatorPower *self = INDICATOR_POWER (object);
+  IndicatorPowerPrivate *priv = self->priv;
+
+  if (priv->settings != NULL)
+    {
+      g_signal_handlers_disconnect_by_func (priv->settings, update_visibility, self);
+      g_object_unref (priv->settings);
+      priv->settings = NULL;
+    }
+
   G_OBJECT_CLASS (indicator_power_parent_class)->dispose (object);
 }
 

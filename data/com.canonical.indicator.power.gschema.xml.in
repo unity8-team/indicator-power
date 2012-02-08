@@ -5,5 +5,15 @@
       <_summary>Show time in Menu Bar</_summary>
       <_description>Whether show the time in the menu bar.</_description>
     </key>
+    <key name="show-indicator" type="s">
+      <choices>
+        <choice value='battery-present'/>
+        <choice value='when-charging'/>
+        <choice value='never'/>
+      </choices>
+      <default>'when-charging'</default>
+      <_summary>Show indicator in Menu Bar</_summary>
+      <_description>When to show the indicator in the menu bar.</_description>
+    </key>
   </schema>
 </schemalist>
