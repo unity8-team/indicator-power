@@ -584,7 +584,7 @@ menu_add_device (GtkMenu  *menu,
   /* Process the data */
   device_gicons = get_device_icon (kind, state, time, device_icon);
   icon = gtk_image_new_from_gicon (device_gicons,
-                                   GTK_ICON_SIZE_SMALL_TOOLBAR);
+                                   GTK_ICON_SIZE_MENU);
   g_clear_object (&device_gicons);
 
   device_name = device_kind_to_localised_string (kind);
@@ -811,7 +811,7 @@ put_primary_device (IndicatorPower *self,
   device_gicons = get_device_icon (kind, state, time, device_icon);
   gtk_image_set_from_gicon (self->status_image,
                             device_gicons,
-                            GTK_ICON_SIZE_LARGE_TOOLBAR);
+                            GTK_ICON_SIZE_MENU);
   g_clear_object (&device_gicons);
   gtk_widget_show (GTK_WIDGET (self->status_image));
 
@@ -990,7 +990,7 @@ get_image (IndicatorObject *io)
     /* Will create the status icon if it doesn't exist already */
     gicon = g_themed_icon_new (DEFAULT_ICON);
     self->status_image = GTK_IMAGE (gtk_image_new_from_gicon (gicon,
-                                                              GTK_ICON_SIZE_LARGE_TOOLBAR));
+                                                              GTK_ICON_SIZE_MENU));
   }
 
   return self->status_image;
