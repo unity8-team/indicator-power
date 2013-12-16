@@ -20,5 +20,10 @@
       <_summary>When to show the battery status in the menu bar.</_summary>
       <_description>Options for when to show battery status. Valid options are "present", "charge", and "never".</_description>
     </key>
+    <key type="b" name="prefer-battery">
+      <default>true</default>
+      <summary>Prefer showing laptop battery in the menu bar.</summary>
+      <description>Whether a present laptop battery should be preferred over other devices, even if they are discharging or charging.</description>
+    </key>
   </schema>
 </schemalist>

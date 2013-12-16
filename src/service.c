@@ -35,6 +35,7 @@
 #define SETTINGS_SHOW_TIME_S "show-time"
 #define SETTINGS_ICON_POLICY_S "icon-policy"
 #define SETTINGS_SHOW_PERCENTAGE_S "show-percentage"
+#define SETTINGS_PREFER_BATTERY_S "prefer-battery"
 
 G_DEFINE_TYPE (IndicatorPowerService,
                indicator_power_service,
@@ -115,6 +116,7 @@ struct _IndicatorPowerServicePrivate
   GSimpleAction * header_action;
   GSimpleAction * show_time_action;
   GSimpleAction * show_percentage_action;
+  GSimpleAction * prefer_battery_action;
   GSimpleAction * battery_level_action;
   GSimpleAction * brightness_action;
 
@@ -158,14 +160,34 @@ get_device_kind_weight (const IndicatorPowerDevice * device)
   return weights[kind];
 }
 
+static int
+device_compare_weight(const IndicatorPowerDevice *a, const IndicatorPowerDevice *b)
+{
+  const int weight_a = get_device_kind_weight (a);
+  const int weight_b = get_device_kind_weight (b);
+
+  if (weight_a > weight_b)
+    {
+      return -1;
+    }
+  else if (weight_a < weight_b)
+    {
+      return 1;
+    }
+
+  return 0;
+}
+
+
 /* sort devices from most interesting to least interesting on this criteria:
+   0. batteries, if prefer_battery is true
    1. discharging items from least time remaining until most time remaining
    2. discharging items with an unknown time remaining
    3. charging items from most time left to charge to least time left to charge
    4. charging items with an unknown time remaining
    5. batteries, then non-line power, then line-power */
 static gint
-device_compare_func (gconstpointer ga, gconstpointer gb)
+device_compare_func (gconstpointer ga, gconstpointer gb, gboolean prefer_battery)
 {
   int ret;
   int state;
@@ -179,6 +201,11 @@ device_compare_func (gconstpointer ga, gconstpointer gb)
   const time_t b_time = indicator_power_device_get_time (b);
 
   ret = 0;
+
+  if (prefer_battery) 
+    {
+      ret = device_compare_weight(a, b);
+    }
 
   state = UP_DEVICE_STATE_DISCHARGING;
   if (!ret && ((a_state == state) || (b_state == state)))
@@ -225,25 +252,48 @@ device_compare_func (gconstpointer ga, gconstpointer gb)
         }
     }
 
-  if (!ret) /* neither device is charging nor discharging... */
+  if (!prefer_battery && !ret) /* neither device is charging nor discharging... */
     {
-      const int weight_a = get_device_kind_weight (a);
-      const int weight_b = get_device_kind_weight (b);
-
-      if (weight_a > weight_b)
-        {
-          ret = -1;
-        }
-      else if (weight_a < weight_b)
-        {
-          ret = 1;
-        }
+      ret = device_compare_weight(a, b);
     }
 
   if (!ret)
     ret = a_state - b_state;
 
   return ret;
+}
+
+static gint
+device_compare_func_prefer_battery (gconstpointer ga, gconstpointer gb)
+{
+  return device_compare_func(ga, gb, TRUE);
+}
+
+static gint
+device_compare_func_no_prefer_battery (gconstpointer ga, gconstpointer gb)
+{
+  return device_compare_func(ga, gb, FALSE);
+}
+
+
+static void
+update_primary_device(IndicatorPowerService *self)
+{
+  priv_t * p = self->priv;
+  guint32 battery_level;
+  const gboolean prefer_battery =
+    g_settings_get_boolean (p->settings, SETTINGS_PREFER_BATTERY_S);
+
+  /* update the primary device */
+  g_clear_object (&p->primary_device);
+  p->primary_device = indicator_power_service_choose_primary_device (p->devices, prefer_battery);
+
+  /* update the battery-level action's state */
+  if (p->primary_device == NULL)
+    battery_level = 0;
+  else
+    battery_level = (int)(indicator_power_device_get_percentage (p->primary_device) + 0.5);
+  g_simple_action_set_state (p->battery_level_action, g_variant_new_uint32 (battery_level));
 }
 
 /***
@@ -510,6 +560,10 @@ create_desktop_settings_section (IndicatorPowerService * self G_GNUC_UNUSED)
                  "indicator.show-percentage");
 
   g_menu_append (menu,
+                 _("Prefer laptop battery in Menu Bar"),
+                 "indicator.prefer-battery");
+
+  g_menu_append (menu,
                  _("Power Settings…"),
                  "indicator.activate-settings");
 
@@ -735,6 +789,13 @@ action_state_to_settings (const GValue       * value,
 }
 
 static void
+on_prefer_battery_changed (IndicatorPowerService * self)
+{
+  update_primary_device (self);
+  rebuild_header_now (self);
+}
+
+static void
 init_gactions (IndicatorPowerService * self)
 {
   GSimpleAction * a;
@@ -795,6 +856,19 @@ init_gactions (IndicatorPowerService * self)
   g_signal_connect_swapped (a, "notify", G_CALLBACK(rebuild_header_now), self);
   g_action_map_add_action (G_ACTION_MAP(p->actions), G_ACTION(a));
   p->show_percentage_action = a;
+
+  /* add the prefer-battery action */
+  a = g_simple_action_new ("prefer-battery", NULL);
+  g_settings_bind_with_mapping (p->settings, SETTINGS_PREFER_BATTERY_S,
+                                a, "state",
+                                G_SETTINGS_BIND_DEFAULT,
+                                settings_to_action_state,
+                                action_state_to_settings,
+                                NULL, NULL);
+  g_signal_connect (a, "activate", G_CALLBACK(on_toggle_action_activated), self);
+  g_signal_connect_swapped (a, "notify", G_CALLBACK(on_prefer_battery_changed), self);
+  g_action_map_add_action (G_ACTION_MAP(p->actions), G_ACTION(a));
+  p->prefer_battery_action = a;
 
   rebuild_header_now (self);
 }
@@ -908,23 +982,13 @@ static void
 on_devices_changed (IndicatorPowerService * self)
 {
   priv_t * p = self->priv;
-  guint32 battery_level;
 
   /* update the device list */
   g_list_free_full (p->devices, (GDestroyNotify)g_object_unref);
   p->devices = indicator_power_device_provider_get_devices (p->device_provider);
 
-  /* update the primary device */
-  g_clear_object (&p->primary_device);
-  p->primary_device = indicator_power_service_choose_primary_device (p->devices);
-
-  /* update the battery-level action's state */
-  if (p->primary_device == NULL)
-    battery_level = 0;
-  else
-    battery_level = (int)(indicator_power_device_get_percentage (p->primary_device) + 0.5);
-  g_simple_action_set_state (p->battery_level_action, g_variant_new_uint32 (battery_level));
-
+  update_primary_device (self);
+  
   rebuild_now (self, SECTION_HEADER | SECTION_DEVICES);
 }
 
@@ -1011,6 +1075,13 @@ my_dispose (GObject * o)
       g_signal_handlers_disconnect_by_data (p->show_percentage_action, self);
 
       g_clear_object (&p->show_percentage_action);
+    }
+
+  if (p->prefer_battery_action != NULL)
+    {
+      g_signal_handlers_disconnect_by_data (p->prefer_battery_action, self);
+
+      g_clear_object (&p->prefer_battery_action);
     }
 
   g_clear_object (&p->brightness_action);
@@ -1141,7 +1212,7 @@ indicator_power_service_set_device_provider (IndicatorPowerService * self,
 }
 
 IndicatorPowerDevice *
-indicator_power_service_choose_primary_device (GList * devices)
+indicator_power_service_choose_primary_device (GList * devices, gboolean prefer_battery)
 {
   IndicatorPowerDevice * primary = NULL;
 
@@ -1150,7 +1221,7 @@ indicator_power_service_choose_primary_device (GList * devices)
       GList * tmp;
 
       tmp = g_list_copy (devices);
-      tmp = g_list_sort (tmp, device_compare_func);
+      tmp = g_list_sort (tmp, prefer_battery ? device_compare_func_prefer_battery : device_compare_func_no_prefer_battery);
       primary = g_object_ref (tmp->data);
 
       g_list_free (tmp);

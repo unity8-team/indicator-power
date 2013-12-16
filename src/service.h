@@ -69,7 +69,7 @@ IndicatorPowerService * indicator_power_service_new (IndicatorPowerDeviceProvide
 void indicator_power_service_set_device_provider (IndicatorPowerService        * self,
                                                   IndicatorPowerDeviceProvider * provider);
 
-IndicatorPowerDevice * indicator_power_service_choose_primary_device (GList * devices);
+IndicatorPowerDevice * indicator_power_service_choose_primary_device (GList * devices, gboolean show_battery);
 
 
 
