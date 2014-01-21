@@ -695,7 +695,7 @@ on_settings_activated (GSimpleAction * a      G_GNUC_UNUSED,
   gchar *path;
 
   path = g_find_program_in_path ("unity-control-center");
-  if (path != NULL)
+  if (g_strcmp0 (g_getenv ("XDG_CURRENT_DESKTOP"), "Unity") == 0 && path != NULL)
     execute_command ("unity-control-center power");
   else
     execute_command ("gnome-control-center power");
