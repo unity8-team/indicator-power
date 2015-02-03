@@ -1,3 +1,10 @@
+indicator-power (12.10.6+15.04.20150203~rtm-0ubuntu1) 14.09; urgency=medium
+
+  [ Charles Kerr ]
+  * Publish the primary device's state for on the bus. (LP: #1416096)
+
+ -- Ubuntu daily release <ps-jenkins@lists.canonical.com>  Tue, 03 Feb 2015 16:07:04 +0000
+
 indicator-power (12.10.6+15.04.20141103~rtm-0ubuntu1) 14.09; urgency=low
 
   [ Sebastien Bacher ]
