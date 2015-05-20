@@ -1,3 +1,11 @@
+indicator-power (12.10.6+15.04.20150520-0ubuntu1) vivid; urgency=medium
+
+  [ Charles Kerr ]
+  * When in autobrightness mode, keep the brightness slider's value in
+    sync with the system brightness (LP: #1370791)
+
+ -- CI Train Bot <ci-train-bot@canonical.com>  Wed, 20 May 2015 20:53:30 +0000
+
 indicator-power (12.10.6+15.04.20150515-0ubuntu1) vivid; urgency=medium
 
   [ Charles Kerr ]
