@@ -723,7 +723,9 @@ TEST_F(DeviceTest, ChoosePrimary)
     { "/some/path/f0", UP_DEVICE_KIND_BATTERY,    UP_DEVICE_STATE_FULLY_CHARGED,  0, 100.0 }, // 6
     { "/some/path/m0", UP_DEVICE_KIND_MOUSE,      UP_DEVICE_STATE_DISCHARGING,   20,  80.0 }, // 7
     { "/some/path/m1", UP_DEVICE_KIND_MOUSE,      UP_DEVICE_STATE_FULLY_CHARGED,  0, 100.0 }, // 8
-    { "/some/path/pw", UP_DEVICE_KIND_LINE_POWER, UP_DEVICE_STATE_UNKNOWN,        0,   0.0 }  // 9
+    { "/some/path/pw", UP_DEVICE_KIND_LINE_POWER, UP_DEVICE_STATE_UNKNOWN,        0,   0.0 }, // 9
+    { "/some/path/m2", UP_DEVICE_KIND_MOUSE,      UP_DEVICE_STATE_DISCHARGING,    0,  80.0 }, // 10
+    { "/some/path/m3", UP_DEVICE_KIND_MOUSE,      UP_DEVICE_STATE_DISCHARGING,    0,   5.0 }, // 11
   };
 
   std::vector<IndicatorPowerDevice*> devices;
@@ -752,6 +754,10 @@ TEST_F(DeviceTest, ChoosePrimary)
 
     { { 0, 7 }, descriptions[0] }, // 1 discharging battery, 1 discharging mouse. pick the one with the least time left.
     { { 2, 7 }, descriptions[7] }, // 1 discharging battery, 1 discharging mouse. pick the one with the least time left.
+    { { 2, 10 }, descriptions[2] }, // 1 discharging battery, 1 discharging mouse over 10% with no time estimate. pick the battery.
+    { { 6, 10 }, descriptions[6] }, // 1 fully charged battery, 1 discharging mouse over 10% with no time estimate. pick the battery.
+    { { 2, 11 }, descriptions[2] }, // 1 discharging battery with time estimate, 1 discharging mouse below 10% with no time estimate. prefer the device with the time estimate.
+    { { 6, 11 }, descriptions[11] }, // 1 fully charged battery, 1 discharging mouse below 10% with no time estimate. pick the mouse below 10%.
 
     { { 0, 8 }, descriptions[0] }, // 1 discharging battery, 1 fully-charged mouse. pick the one that's discharging.
     { { 6, 7 }, descriptions[7] }, // 1 discharging mouse, 1 fully-charged battery. pick the one that's discharging.
