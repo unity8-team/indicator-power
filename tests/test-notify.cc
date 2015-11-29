@@ -18,15 +18,13 @@
  */
 
 
-#include "glib-fixture.h"
+#include "dbus-fixture.h"
 
 #include "dbus-shared.h"
 #include "device.h"
 #include "notifier.h"
 
 #include <gtest/gtest.h>
-
-#include <libdbustest/dbus-test.h>
 
 #include <libnotify/notify.h>
 
@@ -37,126 +35,45 @@
 ****
 ***/
 
-class NotifyFixture: public GlibFixture
+class NotifyFixture: public DBusFixture
 {
-private:
-
-  typedef GlibFixture super;
-
-  static constexpr char const * NOTIFY_BUSNAME   {"org.freedesktop.Notifications"};
-  static constexpr char const * NOTIFY_INTERFACE {"org.freedesktop.Notifications"};
-  static constexpr char const * NOTIFY_PATH      {"/org/freedesktop/Notifications"};
+    typedef DBusFixture super;
 
 protected:
 
-  DbusTestService * service = nullptr;
-  DbusTestDbusMock * mock = nullptr;
-  DbusTestDbusMockObject * obj = nullptr;
-  GDBusConnection * bus = nullptr;
+    GTestDBus* m_test_bus {};
 
-  static constexpr int FIRST_NOTIFY_ID {1234};
+    static constexpr char const * APP_NAME {"indicator-power-service"};
 
-  static constexpr int NOTIFICATION_CLOSED_EXPIRED   {1};
-  static constexpr int NOTIFICATION_CLOSED_DISMISSED {2};
-  static constexpr int NOTIFICATION_CLOSED_API       {3};
-  static constexpr int NOTIFICATION_CLOSED_UNDEFINED {4};
+    void BeforeBusSetUp() override
+    {
+        // use a fake bus
+        m_test_bus = g_test_dbus_new(G_TEST_DBUS_NONE);
+        g_test_dbus_up(m_test_bus);
 
-  static constexpr char const * APP_NAME {"indicator-power-service"};
+        // start the notifications service
+        const gchar* child_argv[] = { "python3", TEST_SCRIPTS_DIR "/start-mock-notifications.py", "--unity8", nullptr };
+        GError* error = nullptr;
+        g_spawn_async(nullptr, (gchar**)child_argv, nullptr, G_SPAWN_SEARCH_PATH, nullptr, nullptr, nullptr, &error);
+        g_assert_no_error(error);
+    }
 
-  static constexpr char const * METHOD_CLOSE {"CloseNotification"};
-  static constexpr char const * METHOD_NOTIFY {"Notify"};
-  static constexpr char const * METHOD_GET_CAPS {"GetCapabilities"};
-  static constexpr char const * METHOD_GET_INFO {"GetServerInformation"};
-  static constexpr char const * SIGNAL_CLOSED {"NotificationClosed"};
+    void SetUp() override
+    {
+        super::SetUp();
 
-  static constexpr char const * HINT_TIMEOUT {"x-canonical-snap-decisions-timeout"};
+        wait_for_bus_name(G_BUS_TYPE_SESSION, "org.freedesktop.Notifications");
+        notify_init(APP_NAME);
+    }
 
-protected:
+    void TearDown() override
+    {
+        notify_uninit();
 
-  void SetUp()
-  {
-    super::SetUp();
+        DBusFixture::TearDown();
 
-    // init DBusMock / dbus-test-runner
-
-    service = dbus_test_service_new(nullptr);
-
-    GError * error = nullptr;
-    mock = dbus_test_dbus_mock_new(NOTIFY_BUSNAME);
-    obj = dbus_test_dbus_mock_get_object(mock,
-                                         NOTIFY_PATH,
-                                         NOTIFY_INTERFACE,
-                                         &error);
-    g_assert_no_error (error);
-  
-    // METHOD_GET_INFO 
-    dbus_test_dbus_mock_object_add_method(mock, obj, METHOD_GET_INFO,
-                                          nullptr,
-                                          G_VARIANT_TYPE("(ssss)"),
-                                          "ret = ('mock-notify', 'test vendor', '1.0', '1.1')",
-                                          &error);
-    g_assert_no_error (error);
-
-    // METHOD_NOTIFY
-    auto str = g_strdup_printf("try:\n"
-                               "  self.NextNotifyId\n"
-                               "except AttributeError:\n"
-                               "  self.NextNotifyId = %d\n"
-                               "ret = self.NextNotifyId\n"
-                               "self.NextNotifyId += 1\n",
-                               FIRST_NOTIFY_ID);
-    dbus_test_dbus_mock_object_add_method(mock, obj, METHOD_NOTIFY,
-                                          G_VARIANT_TYPE("(susssasa{sv}i)"),
-                                          G_VARIANT_TYPE_UINT32,
-                                          str,
-                                          &error);
-    g_assert_no_error (error);
-    g_free (str);
-
-    // METHOD_CLOSE 
-    str = g_strdup_printf("self.EmitSignal('%s', '%s', 'uu', [ args[0], %d ])",
-                          NOTIFY_INTERFACE,
-                          SIGNAL_CLOSED,
-                          NOTIFICATION_CLOSED_API);
-    dbus_test_dbus_mock_object_add_method(mock, obj, METHOD_CLOSE,
-                                          G_VARIANT_TYPE("(u)"),
-                                          nullptr,
-                                          str,
-                                          &error);
-    g_assert_no_error (error);
-    g_free (str);
-
-    dbus_test_service_add_task(service, DBUS_TEST_TASK(mock));
-    dbus_test_service_start_tasks(service);
-
-    bus = g_bus_get_sync(G_BUS_TYPE_SESSION, nullptr, nullptr);
-    g_dbus_connection_set_exit_on_close(bus, FALSE);
-    g_object_add_weak_pointer(G_OBJECT(bus), reinterpret_cast<gpointer*>(&bus));
-
-    notify_init(APP_NAME);
-  }
-
-  virtual void TearDown()
-  {
-    notify_uninit();
-
-    g_clear_object(&mock);
-    g_clear_object(&service);
-    g_object_unref(bus);
-
-    // wait a little while for the scaffolding to shut down,
-    // but don't block on it forever...
-    unsigned int cleartry = 0;
-    while ((bus != nullptr) && (cleartry < 50))
-      {
-        g_usleep(100000);
-        while (g_main_pending())
-          g_main_iteration(true);
-        cleartry++;
-      }
-
-    super::TearDown();
-  }
+        g_clear_object(&m_test_bus);
+    }
 };
 
 /***
@@ -171,7 +88,6 @@ TEST_F(NotifyFixture, HelloWorld)
 /***
 ****
 ***/
-
 
 namespace
 {
@@ -275,11 +191,11 @@ TEST_F(NotifyFixture, LevelsDuringBatteryDrain)
   // charge should show up on the bus.
   auto notifier = indicator_power_notifier_new ();
   indicator_power_notifier_set_battery (notifier, battery);
-  indicator_power_notifier_set_bus (notifier, bus);
+  indicator_power_notifier_set_bus (notifier, m_bus);
   wait_msec();
 
   ChangedParams changed_params;
-  auto sub_tag = g_dbus_connection_signal_subscribe (bus,
+  auto sub_tag = g_dbus_connection_signal_subscribe (m_bus,
                                                      nullptr,
                                                      "org.freedesktop.DBus.Properties",
                                                      "PropertiesChanged",
@@ -314,7 +230,7 @@ TEST_F(NotifyFixture, LevelsDuringBatteryDrain)
     }
 
   // cleanup
-  g_dbus_connection_signal_unsubscribe (bus, sub_tag);
+  g_dbus_connection_signal_unsubscribe (m_bus, sub_tag);
   g_object_unref (notifier);
   g_object_unref (battery);
 }
@@ -325,18 +241,6 @@ TEST_F(NotifyFixture, LevelsDuringBatteryDrain)
 
 TEST_F(NotifyFixture, EventsThatChangeNotifications)
 {
-  // GetCapabilities returns an array containing 'actions', so that we'll
-  // get snap decisions and the 'IsWarning' property
-  GError * error = nullptr;
-  dbus_test_dbus_mock_object_add_method (mock,
-                                         obj,
-                                         METHOD_GET_CAPS,
-                                         nullptr,
-                                         G_VARIANT_TYPE_STRING_ARRAY,
-                                         "ret = ['actions', 'body']",
-                                         &error);
-  g_assert_no_error (error);
-
   auto battery = indicator_power_device_new ("/object/path",
                                              UP_DEVICE_KIND_BATTERY,
                                              percent_low + 1.0,
@@ -347,9 +251,9 @@ TEST_F(NotifyFixture, EventsThatChangeNotifications)
   // charge should show up on the bus.
   auto notifier = indicator_power_notifier_new ();
   indicator_power_notifier_set_battery (notifier, battery);
-  indicator_power_notifier_set_bus (notifier, bus);
+  indicator_power_notifier_set_bus (notifier, m_bus);
   ChangedParams changed_params;
-  auto sub_tag = g_dbus_connection_signal_subscribe (bus,
+  auto sub_tag = g_dbus_connection_signal_subscribe (m_bus,
                                                      nullptr,
                                                      "org.freedesktop.DBus.Properties",
                                                      "PropertiesChanged",
@@ -404,7 +308,7 @@ TEST_F(NotifyFixture, EventsThatChangeNotifications)
   EXPECT_FALSE (changed_params.is_warning);
 
   // cleanup
-  g_dbus_connection_signal_unsubscribe (bus, sub_tag);
+  g_dbus_connection_signal_unsubscribe (m_bus, sub_tag);
   g_object_unref (notifier);
   g_object_unref (battery);
 }
