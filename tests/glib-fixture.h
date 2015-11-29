@@ -80,7 +80,7 @@ class GlibFixture : public ::testing::Test
     {
       setlocale(LC_ALL, "C.UTF-8");
 
-      loop = g_main_loop_new(nullptr, false);
+      m_loop = g_main_loop_new(nullptr, false);
 
       g_log_set_default_handler(default_log_handler, this);
 
@@ -93,7 +93,7 @@ class GlibFixture : public ::testing::Test
 
       g_log_set_default_handler(realLogHandler, this);
 
-      g_clear_pointer(&loop, g_main_loop_unref);
+      g_clear_pointer(&m_loop, g_main_loop_unref);
     }
 
   private:
@@ -120,11 +120,11 @@ class GlibFixture : public ::testing::Test
       // wait for the signal or for timeout, whichever comes first
       const auto handler_id = g_signal_connect_swapped(o, signal,
                                                        G_CALLBACK(g_main_loop_quit),
-                                                       loop);
+                                                       m_loop);
       const auto timeout_id = g_timeout_add_seconds(timeout_seconds,
                                                     wait_for_signal__timeout,
-                                                    loop);
-      g_main_loop_run(loop);
+                                                    m_loop);
+      g_main_loop_run(m_loop);
       g_source_remove(timeout_id);
       g_signal_handler_disconnect(o, handler_id);
     }
@@ -132,10 +132,10 @@ class GlibFixture : public ::testing::Test
     /* convenience func to loop for N msec */
     void wait_msec(guint msec=50)
     {
-      const auto id = g_timeout_add(msec, wait_msec__timeout, loop);
-      g_main_loop_run(loop);
+      const auto id = g_timeout_add(msec, wait_msec__timeout, m_loop);
+      g_main_loop_run(m_loop);
       g_source_remove(id);
     }
 
-    GMainLoop * loop;
+    GMainLoop * m_loop {};
 };
