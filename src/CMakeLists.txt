@@ -13,7 +13,8 @@ set(SERVICE_MANUAL_SOURCES
     device.c
     notifier.c
     testing.c
-    service.c)
+    service.c
+    sound.c)
 
 # generated sources
 include(GdbusCodegen)

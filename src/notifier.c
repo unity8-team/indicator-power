@@ -17,9 +17,11 @@
  *   Charles Kerr <charles.kerr@canonical.com>
  */
 
+#include "datafiles.h"
 #include "dbus-battery.h"
 #include "dbus-shared.h"
 #include "notifier.h"
+#include "sound.h"
 
 #include <url-dispatcher.h>
 
@@ -128,6 +130,29 @@ get_battery_power_level (IndicatorPowerDevice * battery)
     ret = POWER_LEVEL_OK;
 
   return ret;
+}
+
+/***
+****  Sounds
+***/
+
+static void
+play_low_battery_sound (void)
+{
+  const gchar * key;
+  gchar * filename;
+
+  key = "Low battery.ogg";
+  filename = datafile_find(DATAFILE_TYPE_SOUND, key);
+  if (filename != NULL)
+    {
+      sound_play_file(filename);
+      g_free(filename);
+    }
+  else
+    {
+      g_warning("Unable to find '%s' in XDG data dirs", key);
+    }
 }
 
 /***
@@ -300,6 +325,7 @@ on_battery_property_changed (IndicatorPowerNotifier * self)
       ((new_power_level != POWER_LEVEL_OK) && new_discharging && !old_discharging))
     {
       notification_show (self);
+      play_low_battery_sound();
     }
   else if (!new_discharging || (new_power_level == POWER_LEVEL_OK))
     {
