@@ -88,3 +88,14 @@ set (UNITY_INDICATOR_FILE "${CMAKE_CURRENT_SOURCE_DIR}/${UNITY_INDICATOR_NAME}")
 
 install (FILES "${UNITY_INDICATOR_FILE}"
          DESTINATION "${UNITY_INDICATOR_DIR}")
+
+##
+##  Sounds
+##
+
+# where to install
+set (SOUNDS_DIR "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/${CMAKE_PROJECT_NAME}/sounds")
+message (STATUS "${SOUNDS_DIR} is the Sound install dir")
+
+install (FILES "Low battery.ogg"
+         DESTINATION "${SOUNDS_DIR}")
