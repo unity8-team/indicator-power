@@ -144,10 +144,8 @@ my_play_uri (IndicatorPowerSoundPlayer * self G_GNUC_UNUSED, const gchar * uri)
 ***/
 
 static void
-indicator_power_sound_player_gst_class_init (IndicatorPowerSoundPlayerGSTClass * klass)
+indicator_power_sound_player_gst_class_init (IndicatorPowerSoundPlayerGSTClass * klass G_GNUC_UNUSED)
 {
-  g_type_class_add_private (klass, sizeof (IndicatorPowerSoundPlayerGSTPrivate));
-
   gst_init_once();
 }
 
