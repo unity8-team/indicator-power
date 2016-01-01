@@ -14,7 +14,9 @@ set(SERVICE_MANUAL_SOURCES
     notifier.c
     testing.c
     service.c
-    sound.c)
+    sound-player.c
+    sound-player-gst.c
+    sound-player-mock.c)
 
 # generated sources
 include(GdbusCodegen)
