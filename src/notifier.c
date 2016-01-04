@@ -87,6 +87,7 @@ typedef struct
 
   GCancellable * cancellable;
   DbusAccountsServiceSound * accounts_service_sound_proxy;
+  gboolean accounts_service_sound_proxy_pending;
 }
 IndicatorPowerNotifierPrivate;
 
@@ -157,7 +158,10 @@ on_sound_proxy_ready (GObject      * source_object G_GNUC_UNUSED,
   if (error != NULL)
     {
       if (!g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
-        g_warning("%s Couldn't find accounts service sound proxy: %s", G_STRLOC, error->message);
+        {
+          get_priv(gself)->accounts_service_sound_proxy_pending = FALSE;
+          g_warning("%s Couldn't find accounts service sound proxy: %s", G_STRLOC, error->message);
+        }
 
       g_clear_error(&error);
     }
@@ -167,6 +171,7 @@ on_sound_proxy_ready (GObject      * source_object G_GNUC_UNUSED,
       priv_t * const p = get_priv (self);
       g_clear_object (&p->accounts_service_sound_proxy);
       p->accounts_service_sound_proxy = proxy;
+      p->accounts_service_sound_proxy_pending = FALSE;
     }
 }
 
@@ -177,10 +182,11 @@ silent_mode (IndicatorPowerNotifier * self)
 
   /* if we don't have a proxy yet, assume we're in silent mode
      as a "do no harm" level of response */
-  if (p->accounts_service_sound_proxy == NULL)
+  if (p->accounts_service_sound_proxy_pending)
     return TRUE;
 
-  return dbus_accounts_service_sound_get_silent_mode(p->accounts_service_sound_proxy);
+  return (p->accounts_service_sound_proxy != NULL)
+      && dbus_accounts_service_sound_get_silent_mode(p->accounts_service_sound_proxy);
 }
 
 static void
@@ -496,6 +502,7 @@ indicator_power_notifier_init (IndicatorPowerNotifier * self)
   if (!instance_count++ && !notify_init("indicator-power-service"))
     g_critical("Unable to initialize libnotify! Notifications might not be shown.");
 
+  p->accounts_service_sound_proxy_pending = TRUE;
   gchar* object_path = g_strdup_printf("/org/freedesktop/Accounts/User%lu", (gulong)getuid());
   dbus_accounts_service_sound_proxy_new_for_bus(
     G_BUS_TYPE_SYSTEM,
