@@ -36,7 +36,7 @@ add_gdbus_codegen_with_namespace(SERVICE_GENERATED_SOURCES dbus-testing
 add_gdbus_codegen_with_namespace(SERVICE_GENERATED_SOURCES dbus-accounts-sound
                                  com.ubuntu.touch
                                  Dbus
-                                 ${CMAKE_SOURCE_DIR}/src/com.ubuntu.touch.AccountsService.Sound.xml)
+                                 /usr/share/accountsservice/interfaces/com.ubuntu.touch.AccountsService.Sound.xml
 
 # add the bin dir to our include path so the code can find the generated header files
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
