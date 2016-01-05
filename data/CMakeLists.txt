@@ -88,3 +88,12 @@ set (UNITY_INDICATOR_FILE "${CMAKE_CURRENT_SOURCE_DIR}/${UNITY_INDICATOR_NAME}")
 
 install (FILES "${UNITY_INDICATOR_FILE}"
          DESTINATION "${UNITY_INDICATOR_DIR}")
+
+##
+##  Sounds
+##
+
+# where to install
+set (DATA_HOME "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_DATADIR}/${CMAKE_PROJECT_NAME}")
+message (STATUS "${DATA_HOME} is the sounds/ install dir")
+install (DIRECTORY sounds DESTINATION ${DATA_HOME})

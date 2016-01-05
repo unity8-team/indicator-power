@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Canonical Ltd.
+ * Copyright 2014-2016 Canonical Ltd.
  *
  * This program is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 3, as published
@@ -17,9 +17,12 @@
  *   Charles Kerr <charles.kerr@canonical.com>
  */
 
+#include "datafiles.h"
+#include "dbus-accounts-sound.h"
 #include "dbus-battery.h"
 #include "dbus-shared.h"
 #include "notifier.h"
+#include "sound-player.h"
 
 #include <url-dispatcher.h>
 
@@ -46,10 +49,12 @@ enum
 {
   PROP_0,
   PROP_BATTERY,
+  PROP_SOUND_PLAYER,
   LAST_PROP
 };
 
 #define PROP_BATTERY_NAME "battery"
+#define PROP_SOUND_PLAYER_NAME "sound-player"
 
 static GParamSpec * properties[LAST_PROP];
 
@@ -77,6 +82,12 @@ typedef struct
 
   gboolean caps_queried;
   gboolean actions_supported;
+
+  IndicatorPowerSoundPlayer * sound_player;
+
+  GCancellable * cancellable;
+  DbusAccountsServiceSound * accounts_service_sound_proxy;
+  gboolean accounts_service_sound_proxy_pending;
 }
 IndicatorPowerNotifierPrivate;
 
@@ -128,6 +139,82 @@ get_battery_power_level (IndicatorPowerDevice * battery)
     ret = POWER_LEVEL_OK;
 
   return ret;
+}
+
+/***
+****  Sounds
+***/
+
+static void
+on_sound_proxy_ready (GObject      * source_object G_GNUC_UNUSED,
+                      GAsyncResult * res,
+                      gpointer       gself)
+{
+  GError * error;
+  DbusAccountsServiceSound * proxy;
+
+  error = NULL;
+  proxy = dbus_accounts_service_sound_proxy_new_for_bus_finish (res, &error);
+  if (error != NULL)
+    {
+      if (!g_error_matches(error, G_IO_ERROR, G_IO_ERROR_CANCELLED))
+        {
+          get_priv(gself)->accounts_service_sound_proxy_pending = FALSE;
+          g_debug("%s Couldn't find accounts service sound proxy: %s", G_STRLOC, error->message);
+        }
+
+      g_clear_error(&error);
+    }
+  else
+    {
+      IndicatorPowerNotifier * const self = INDICATOR_POWER_NOTIFIER(gself);
+      priv_t * const p = get_priv (self);
+      g_clear_object (&p->accounts_service_sound_proxy);
+      p->accounts_service_sound_proxy = proxy;
+      p->accounts_service_sound_proxy_pending = FALSE;
+    }
+}
+
+static gboolean
+silent_mode (IndicatorPowerNotifier * self)
+{
+  priv_t * const p = get_priv (self);
+
+  /* if we don't have a proxy yet, assume we're in silent mode
+     as a "do no harm" level of response */
+  if (p->accounts_service_sound_proxy_pending)
+    return TRUE;
+
+  return (p->accounts_service_sound_proxy != NULL)
+      && dbus_accounts_service_sound_get_silent_mode(p->accounts_service_sound_proxy);
+}
+
+static void
+play_low_battery_sound (IndicatorPowerNotifier * self)
+{
+  const gchar * const key = LOW_BATTERY_SOUND;
+  gchar * filename;
+  priv_t * const p = get_priv(self);
+
+  /* can't play? */
+  g_return_if_fail (p->sound_player != NULL);
+
+  /* won't play? */
+  if (silent_mode(self))
+    return;
+
+  filename = datafile_find(DATAFILE_TYPE_SOUND, key);
+  if (filename != NULL)
+    {
+      gchar * uri = g_filename_to_uri(filename, NULL, NULL);
+      indicator_power_sound_player_play_uri (p->sound_player, uri);
+      g_free(uri);
+      g_free(filename);
+    }
+  else
+    {
+      g_warning("Unable to find '%s' in XDG data dirs", key);
+    }
 }
 
 /***
@@ -300,6 +387,7 @@ on_battery_property_changed (IndicatorPowerNotifier * self)
       ((new_power_level != POWER_LEVEL_OK) && new_discharging && !old_discharging))
     {
       notification_show (self);
+      play_low_battery_sound (self);
     }
   else if (!new_discharging || (new_power_level == POWER_LEVEL_OK))
     {
@@ -330,6 +418,10 @@ my_get_property (GObject     * o,
         g_value_set_object (value, p->battery);
         break;
 
+      case PROP_SOUND_PLAYER:
+        g_value_set_object (value, p->sound_player);
+        break;
+
       default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID (o, property_id, pspec);
     }
@@ -349,6 +441,10 @@ my_set_property (GObject       * o,
         indicator_power_notifier_set_battery (self, g_value_get_object(value));
         break;
 
+      case PROP_SOUND_PLAYER:
+        indicator_power_notifier_set_sound_player (self, g_value_get_object(value));
+        break;
+
       default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID (o, property_id, pspec);
     }
@@ -360,10 +456,18 @@ my_dispose (GObject * o)
   IndicatorPowerNotifier * const self = INDICATOR_POWER_NOTIFIER(o);
   priv_t * const p = get_priv (self);
 
+  if (p->cancellable != NULL)
+    {
+      g_cancellable_cancel(p->cancellable);
+      g_clear_object(&p->cancellable);
+    }
+
   indicator_power_notifier_set_bus (self, NULL);
+  indicator_power_notifier_set_sound_player (self, NULL);
   notification_clear (self);
   indicator_power_notifier_set_battery (self, NULL);
   g_clear_object (&p->dbus_battery);
+  g_clear_object (&p->accounts_service_sound_proxy);
 
   G_OBJECT_CLASS (indicator_power_notifier_parent_class)->dispose (o);
 }
@@ -382,7 +486,6 @@ my_finalize (GObject * o G_GNUC_UNUSED)
 ****  Instantiation
 ***/
 
-
 static void
 indicator_power_notifier_init (IndicatorPowerNotifier * self)
 {
@@ -394,8 +497,22 @@ indicator_power_notifier_init (IndicatorPowerNotifier * self)
 
   p->power_level = POWER_LEVEL_OK;
 
+  p->cancellable = g_cancellable_new();
+
   if (!instance_count++ && !notify_init("indicator-power-service"))
     g_critical("Unable to initialize libnotify! Notifications might not be shown.");
+
+  p->accounts_service_sound_proxy_pending = TRUE;
+  gchar* object_path = g_strdup_printf("/org/freedesktop/Accounts/User%lu", (gulong)getuid());
+  dbus_accounts_service_sound_proxy_new_for_bus(
+    G_BUS_TYPE_SYSTEM,
+    G_DBUS_PROXY_FLAGS_GET_INVALIDATED_PROPERTIES,
+    "org.freedesktop.Accounts",
+    object_path,
+    p->cancellable,
+    on_sound_proxy_ready,
+    self);
+  g_clear_pointer(&object_path, g_free);
 }
 
 static void
@@ -415,6 +532,13 @@ indicator_power_notifier_class_init (IndicatorPowerNotifierClass * klass)
     G_TYPE_OBJECT,
     G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
 
+  properties[PROP_SOUND_PLAYER] = g_param_spec_object (
+    PROP_SOUND_PLAYER_NAME,
+    "Sound Player",
+    "The current sound player",
+    G_TYPE_OBJECT,
+    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
+
   g_object_class_install_properties (object_class, LAST_PROP, properties);
 }
 
@@ -423,9 +547,11 @@ indicator_power_notifier_class_init (IndicatorPowerNotifierClass * klass)
 ***/
 
 IndicatorPowerNotifier *
-indicator_power_notifier_new (void)
+indicator_power_notifier_new (IndicatorPowerSoundPlayer * sound_player)
 {
-  GObject * o = g_object_new (INDICATOR_TYPE_POWER_NOTIFIER, NULL);
+  GObject * o = g_object_new (INDICATOR_TYPE_POWER_NOTIFIER,
+                              PROP_SOUND_PLAYER_NAME, sound_player,
+                              NULL);
 
   return INDICATOR_POWER_NOTIFIER (o);
 }
@@ -462,6 +588,26 @@ indicator_power_notifier_set_battery (IndicatorPowerNotifier * self,
                                 G_CALLBACK(on_battery_property_changed), self);
       on_battery_property_changed (self);
     }
+}
+
+void
+indicator_power_notifier_set_sound_player (IndicatorPowerNotifier * self,
+                                           IndicatorPowerSoundPlayer * sound_player)
+{
+  priv_t * p;
+
+  g_return_if_fail(INDICATOR_IS_POWER_NOTIFIER(self));
+  g_return_if_fail((sound_player == NULL) || INDICATOR_IS_POWER_SOUND_PLAYER(sound_player));
+
+  p = get_priv (self);
+
+  if (p->sound_player == sound_player)
+    return;
+
+  g_clear_object(&p->sound_player);
+
+  if (sound_player != NULL)
+      p->sound_player = g_object_ref(sound_player);
 }
 
 void

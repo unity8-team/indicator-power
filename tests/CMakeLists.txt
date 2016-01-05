@@ -14,10 +14,22 @@ include_directories (SYSTEM ${DBUSTEST_INCLUDE_DIRS})
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -g ${C_WARNING_ARGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-weak-vtables -Wno-global-constructors") # Google Test
 
+# build the mocks
+set(MOCK_LIB "indicatorpowerservicemocks")
+set(MOCK_SOURCES sound-player-mock.c)
+set_source_files_properties(${MOCK_SOURCES}
+                            PROPERTIES COMPILE_FLAGS "${C_WARNING_ARGS} -g -std=c99")
+add_library(${MOCK_LIB} STATIC ${MOCK_SOURCES})
+
 # build the necessary schemas
 set_directory_properties (PROPERTIES
                           ADDITIONAL_MAKE_CLEAN_FILES gschemas.compiled)
 set_source_files_properties (gschemas.compiled GENERATED)
+
+# make a XDG_DATA_HOME for sounds/
+set(XDG_DATA_HOME "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_INSTALL_DATADIR}")
+add_definitions(-DXDG_DATA_HOME="${XDG_DATA_HOME}")
+file(COPY "${CMAKE_SOURCE_DIR}/data/sounds" DESTINATION "${XDG_DATA_HOME}/${CMAKE_PROJECT_NAME}")
 
 # GSettings:
 # compile the indicator-power schema into a gschemas.compiled file in this directory,
@@ -44,8 +56,8 @@ function(add_test_by_name name)
   set (TEST_NAME ${name})
   add_executable (${TEST_NAME} ${TEST_NAME}.cc gschemas.compiled)
   add_test (${TEST_NAME} ${TEST_NAME})
-  add_dependencies (${TEST_NAME} libindicatorpowerservice)
-  target_link_libraries (${TEST_NAME} indicatorpowerservice gtest ${DBUSTEST_LIBRARIES} ${SERVICE_DEPS_LIBRARIES} ${GTEST_LIBS})
+  add_dependencies (${TEST_NAME} ${MOCK_LIB} libindicatorpowerservice)
+  target_link_libraries (${TEST_NAME} ${MOCK_LIB} indicatorpowerservice gtest ${DBUSTEST_LIBRARIES} ${SERVICE_DEPS_LIBRARIES} ${GTEST_LIBS})
 endfunction()
 add_test_by_name(test-notify)
 add_test(NAME dear-reader-the-next-test-takes-80-seconds COMMAND true)

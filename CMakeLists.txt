@@ -7,7 +7,8 @@ set(PROJECT_VERSION "14.10.0")
 set(PACKAGE ${CMAKE_PROJECT_NAME})
 set(GETTEXT_PACKAGE "indicator-power")
 add_definitions (-DGETTEXT_PACKAGE="${GETTEXT_PACKAGE}"
-                 -DGNOMELOCALEDIR="${CMAKE_INSTALL_FULL_LOCALEDIR}")
+                 -DGNOMELOCALEDIR="${CMAKE_INSTALL_FULL_LOCALEDIR}"
+                 -DLOW_BATTERY_SOUND="Low battery.ogg")
 
 option (enable_tests "Build the package's automatic tests." ON)
 option (enable_lcov "Generate lcov code coverage reports." ON)
@@ -38,6 +39,7 @@ pkg_check_modules(SERVICE_DEPS REQUIRED
                   gio-unix-2.0>=2.36
                   gudev-1.0>=204
                   libnotify>=0.7.6
+                  gstreamer-1.0>=1.2
                   url-dispatcher-1>=1)
 
 include_directories (SYSTEM ${SERVICE_DEPS_INCLUDE_DIRS})
