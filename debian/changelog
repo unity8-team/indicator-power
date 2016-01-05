@@ -1,3 +1,15 @@
+indicator-power (12.10.6+16.04.20160105-0ubuntu1) xenial; urgency=medium
+
+  [ Charles Kerr ]
+  * Play a 'low battery' sound when the low battery notification is
+    shown. (LP: #1470767)
+
+  [ charles kerr ]
+  * Play a 'low battery' sound when the low battery notification is
+    shown. (LP: #1470767)
+
+ -- Charles Kerr <charles.kerr@canonical.com>  Tue, 05 Jan 2016 14:37:51 +0000
+
 indicator-power (12.10.6+15.10.20151005.1-0ubuntu1) wily; urgency=medium
 
   [ CI Train Bot ]
