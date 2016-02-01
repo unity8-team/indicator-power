@@ -9,8 +9,6 @@ Build-Depends: cmake,
                liburl-dispatcher1-dev,
                libgstreamer1.0-dev,
                python:any,
-# for com.ubuntu.touch.AccountsService.Sound.xml
-               accountsservice-ubuntu-schemas,
 # for packaging
                debhelper (>= 9),
                dh-translations,
