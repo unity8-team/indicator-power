@@ -376,8 +376,8 @@ TEST_F(DeviceTest, IconNames)
                        NULL);
       g_string_append_printf (expected, "%s-030-charging;", kind_str);
       g_string_append_printf (expected, "gpm-%s-030-charging;", kind_str);
-      g_string_append_printf (expected, "%s-020-charging;", kind_str);
-      g_string_append_printf (expected, "gpm-%s-020-charging;", kind_str);
+      g_string_append_printf (expected, "%s-040-charging;", kind_str);
+      g_string_append_printf (expected, "gpm-%s-040-charging;", kind_str);
       g_string_append_printf (expected, "%s-low-charging-symbolic;", kind_str);
       g_string_append_printf (expected, "%s-low-charging", kind_str);
       EXPECT_ICON_NAMES_EQ(expected->str, device);
@@ -446,8 +446,8 @@ TEST_F(DeviceTest, IconNames)
                        NULL);
       g_string_append_printf (expected, "%s-030;", kind_str);
       g_string_append_printf (expected, "gpm-%s-030;", kind_str);
-      g_string_append_printf (expected, "%s-020;", kind_str);
-      g_string_append_printf (expected, "gpm-%s-020;", kind_str);
+      g_string_append_printf (expected, "%s-040;", kind_str);
+      g_string_append_printf (expected, "gpm-%s-040;", kind_str);
       g_string_append_printf (expected, "%s-low-symbolic;", kind_str);
       g_string_append_printf (expected, "%s-low", kind_str);
       EXPECT_ICON_NAMES_EQ(expected->str, device);
@@ -461,8 +461,8 @@ TEST_F(DeviceTest, IconNames)
                        NULL);
       g_string_append_printf (expected, "%s-030;", kind_str);
       g_string_append_printf (expected, "gpm-%s-030;", kind_str);
-      g_string_append_printf (expected, "%s-020;", kind_str);
-      g_string_append_printf (expected, "gpm-%s-020;", kind_str);
+      g_string_append_printf (expected, "%s-040;", kind_str);
+      g_string_append_printf (expected, "gpm-%s-040;", kind_str);
       g_string_append_printf (expected, "%s-low-symbolic;", kind_str);
       g_string_append_printf (expected, "%s-low", kind_str);
       EXPECT_ICON_NAMES_EQ(expected->str, device);
