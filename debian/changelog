@@ -1,3 +1,13 @@
+indicator-power (12.10.6+16.04.20160516.1-0ubuntu1) xenial; urgency=medium
+
+  * Fix the fallback power icon so the battery icon doesn't show red
+    above 20% even when the Suru icon theme isn't present. (LP:
+    #1559731)
+  * Use the fdo 'sound-file' hint to play a sound when a low battery
+    notification is shown.
+
+ -- Charles Kerr <charles.kerr@canonical.com>  Mon, 16 May 2016 21:33:32 +0000
+
 indicator-power (12.10.6+16.04.20160105-0ubuntu1) xenial; urgency=medium
 
   [ Charles Kerr ]
