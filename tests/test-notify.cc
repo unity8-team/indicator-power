@@ -23,7 +23,6 @@
 #include "dbus-shared.h"
 #include "device.h"
 #include "notifier.h"
-#include "sound-player-mock.h"
 
 #include <gtest/gtest.h>
 
@@ -61,8 +60,6 @@ protected:
   static constexpr int NOTIFICATION_CLOSED_DISMISSED {2};
   static constexpr int NOTIFICATION_CLOSED_API       {3};
   static constexpr int NOTIFICATION_CLOSED_UNDEFINED {4};
-
-  static constexpr char const * APP_NAME {"indicator-power-service"};
 
   static constexpr char const * METHOD_CLOSE {"CloseNotification"};
   static constexpr char const * METHOD_NOTIFY {"Notify"};
@@ -136,7 +133,7 @@ protected:
     g_dbus_connection_set_exit_on_close(bus, FALSE);
     g_object_add_weak_pointer(G_OBJECT(bus), reinterpret_cast<gpointer*>(&bus));
 
-    notify_init(APP_NAME);
+    notify_init(SERVICE_EXEC);
   }
 
   virtual void TearDown()
@@ -159,6 +156,50 @@ protected:
       }
 
     super::TearDown();
+  }
+
+  /***
+  ****
+  ***/
+
+  int get_notify_call_count() const
+  {
+    guint len {0u};
+    GError* error {nullptr};
+    dbus_test_dbus_mock_object_get_method_calls(mock, obj, METHOD_NOTIFY, &len, &error);
+    g_assert_no_error(error);
+    return len;
+  }
+
+  std::string get_notify_call_sound_file(int call_number)
+  {
+    std::string ret;
+
+    guint len {0u};
+    GError* error {nullptr};
+    auto calls = dbus_test_dbus_mock_object_get_method_calls(mock, obj, METHOD_NOTIFY, &len, &error);
+    g_return_val_if_fail(int(len) > call_number, ret);
+    g_assert_no_error(error);
+
+    constexpr int HINTS_PARAM_POSITION {6};
+    const auto& call = calls[call_number];
+    g_return_val_if_fail(g_variant_n_children(call.params) > HINTS_PARAM_POSITION, ret);
+    auto hints = g_variant_get_child_value(call.params, HINTS_PARAM_POSITION);
+    const gchar* sound_file = nullptr;
+    auto success = g_variant_lookup(hints, "sound-file", "&s", &sound_file);
+    g_return_val_if_fail(success, ret);
+    if (sound_file != nullptr)
+      ret = sound_file;
+    g_clear_pointer(&hints, g_variant_unref);
+
+    return ret;
+  }
+
+  void clear_method_calls()
+  {
+    GError* error{nullptr};
+    ASSERT_TRUE(dbus_test_dbus_mock_object_clear_method_calls(mock, obj, &error));
+    g_assert_no_error(error);
   }
 };
 
@@ -276,8 +317,7 @@ TEST_F(NotifyFixture, LevelsDuringBatteryDrain)
 
   // set up a notifier and give it the battery so changing the battery's
   // charge should show up on the bus.
-  auto sound_player = indicator_power_sound_player_mock_new ();
-  auto notifier = indicator_power_notifier_new (sound_player);
+  auto notifier = indicator_power_notifier_new ();
   indicator_power_notifier_set_battery (notifier, battery);
   indicator_power_notifier_set_bus (notifier, bus);
   wait_msec();
@@ -321,20 +361,11 @@ TEST_F(NotifyFixture, LevelsDuringBatteryDrain)
   g_dbus_connection_signal_unsubscribe (bus, sub_tag);
   g_object_unref (battery);
   g_object_unref (notifier);
-  g_object_unref (sound_player);
 }
 
 /***
 ****
 ***/
-
-namespace
-{
-  static void on_uri_played(IndicatorPowerSoundPlayer*, const char* uri, gpointer glast_uri)
-  {
-    *static_cast<std::string*>(glast_uri) = uri;
-  }
-}
 
 TEST_F(NotifyFixture, EventsThatChangeNotifications)
 {
@@ -364,10 +395,7 @@ TEST_F(NotifyFixture, EventsThatChangeNotifications)
 
   // set up a notifier and give it the battery so changing the battery's
   // charge should show up on the bus.
-  std::string last_uri;
-  auto sound_player = indicator_power_sound_player_mock_new ();
-  g_signal_connect(sound_player, "uri-played", G_CALLBACK(on_uri_played), &last_uri);
-  auto notifier = indicator_power_notifier_new (sound_player);
+  auto notifier = indicator_power_notifier_new ();
   indicator_power_notifier_set_battery (notifier, battery);
   indicator_power_notifier_set_bus (notifier, bus);
   ChangedParams changed_params;
@@ -385,7 +413,6 @@ TEST_F(NotifyFixture, EventsThatChangeNotifications)
   // test setup case
   wait_msec();
   EXPECT_STREQ (POWER_LEVEL_STR_OK, changed_params.power_level.c_str());
-  EXPECT_TRUE(last_uri.empty());
 
   // change the percent past the 'low' threshold and confirm that
   // a) the power level changes
@@ -396,48 +423,49 @@ TEST_F(NotifyFixture, EventsThatChangeNotifications)
   EXPECT_EQ (FIELD_POWER_LEVEL|FIELD_IS_WARNING, changed_params.fields);
   EXPECT_EQ (indicator_power_notifier_get_power_level(battery), changed_params.power_level);
   EXPECT_TRUE (changed_params.is_warning);
-  EXPECT_EQ (low_power_uri, last_uri);
+  EXPECT_EQ (1, get_notify_call_count());
+  EXPECT_EQ (low_power_uri, get_notify_call_sound_file(0));
+  clear_method_calls();
 
   // now test that the warning changes if the level goes down even lower...
-  last_uri.clear();
   changed_params = ChangedParams();
   set_battery_percentage (battery, percent_very_low);
   wait_msec();
   EXPECT_EQ (FIELD_POWER_LEVEL, changed_params.fields);
   EXPECT_STREQ (POWER_LEVEL_STR_VERY_LOW, changed_params.power_level.c_str());
-  EXPECT_EQ (low_power_uri, last_uri);
+  EXPECT_EQ (1, get_notify_call_count());
+  EXPECT_EQ (low_power_uri, get_notify_call_sound_file(0));
+  clear_method_calls();
 
   // ...and that the warning is taken down if the battery is plugged back in...
-  last_uri.clear();
   changed_params = ChangedParams();
   g_object_set (battery, INDICATOR_POWER_DEVICE_STATE, UP_DEVICE_STATE_CHARGING, nullptr);
   wait_msec();
   EXPECT_EQ (FIELD_IS_WARNING, changed_params.fields);
   EXPECT_FALSE (changed_params.is_warning);
-  EXPECT_TRUE(last_uri.empty());
+  EXPECT_EQ (0, get_notify_call_count());
 
   // ...and that it comes back if we unplug again...
-  last_uri.clear();
   changed_params = ChangedParams();
   g_object_set (battery, INDICATOR_POWER_DEVICE_STATE, UP_DEVICE_STATE_DISCHARGING, nullptr);
   wait_msec();
   EXPECT_EQ (FIELD_IS_WARNING, changed_params.fields);
   EXPECT_TRUE (changed_params.is_warning);
-  EXPECT_EQ (low_power_uri, last_uri);
+  EXPECT_EQ (1, get_notify_call_count());
+  EXPECT_EQ (low_power_uri, get_notify_call_sound_file(0));
+  clear_method_calls();
 
   // ...and that it's taken down if the power level is OK
-  last_uri.clear();
   changed_params = ChangedParams();
   set_battery_percentage (battery, percent_low+1);
   wait_msec();
   EXPECT_EQ (FIELD_POWER_LEVEL|FIELD_IS_WARNING, changed_params.fields);
   EXPECT_STREQ (POWER_LEVEL_STR_OK, changed_params.power_level.c_str());
   EXPECT_FALSE (changed_params.is_warning);
-  EXPECT_TRUE(last_uri.empty());
+  EXPECT_EQ (0, get_notify_call_count());
 
   // cleanup
   g_dbus_connection_signal_unsubscribe (bus, sub_tag);
   g_object_unref (notifier);
   g_object_unref (battery);
-  g_object_unref (sound_player);
 }

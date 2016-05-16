@@ -1,8 +1,3 @@
-set (SERVICE_LIB "indicatorpowerservice")
-set (SERVICE_EXEC "indicator-power-service")
-
-add_definitions(-DG_LOG_DOMAIN="Indicator-Power")
-
 # handwritten sources
 set(SERVICE_MANUAL_SOURCES
     brightness.c
@@ -13,9 +8,7 @@ set(SERVICE_MANUAL_SOURCES
     device.c
     notifier.c
     testing.c
-    service.c
-    sound-player.c
-    sound-player-gst.c)
+    service.c)
 
 # generated sources
 include(GdbusCodegen)

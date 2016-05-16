@@ -22,7 +22,6 @@
 #include "dbus-battery.h"
 #include "dbus-shared.h"
 #include "notifier.h"
-#include "sound-player.h"
 
 #include <url-dispatcher.h>
 
@@ -49,12 +48,10 @@ enum
 {
   PROP_0,
   PROP_BATTERY,
-  PROP_SOUND_PLAYER,
   LAST_PROP
 };
 
 #define PROP_BATTERY_NAME "battery"
-#define PROP_SOUND_PLAYER_NAME "sound-player"
 
 static GParamSpec * properties[LAST_PROP];
 
@@ -82,8 +79,6 @@ typedef struct
 
   gboolean caps_queried;
   gboolean actions_supported;
-
-  IndicatorPowerSoundPlayer * sound_player;
 
   GCancellable * cancellable;
   DbusAccountsServiceSound * accounts_service_sound_proxy;
@@ -187,34 +182,6 @@ silent_mode (IndicatorPowerNotifier * self)
 
   return (p->accounts_service_sound_proxy != NULL)
       && dbus_accounts_service_sound_get_silent_mode(p->accounts_service_sound_proxy);
-}
-
-static void
-play_low_battery_sound (IndicatorPowerNotifier * self)
-{
-  const gchar * const key = LOW_BATTERY_SOUND;
-  gchar * filename;
-  priv_t * const p = get_priv(self);
-
-  /* can't play? */
-  g_return_if_fail (p->sound_player != NULL);
-
-  /* won't play? */
-  if (silent_mode(self))
-    return;
-
-  filename = datafile_find(DATAFILE_TYPE_SOUND, key);
-  if (filename != NULL)
-    {
-      gchar * uri = g_filename_to_uri(filename, NULL, NULL);
-      indicator_power_sound_player_play_uri (p->sound_player, uri);
-      g_free(uri);
-      g_free(filename);
-    }
-  else
-    {
-      g_warning("Unable to find '%s' in XDG data dirs", key);
-    }
 }
 
 /***
@@ -331,6 +298,21 @@ notification_show(IndicatorPowerNotifier * self)
 
   if (are_actions_supported(self))
     {
+      if (!silent_mode(self))
+        {
+          gchar* filename = datafile_find(DATAFILE_TYPE_SOUND, LOW_BATTERY_SOUND);
+          if (filename != NULL)
+            {
+              gchar * uri = g_filename_to_uri(filename, NULL, NULL);
+              notify_notification_set_hint(nn, "sound-file", g_variant_new_take_string(uri));
+              g_clear_pointer(&filename, g_free);
+            }
+          else
+            {
+              g_warning("Unable to find '%s' in XDG data dirs", LOW_BATTERY_SOUND);
+            }
+        }
+
       notify_notification_set_hint(nn, "x-canonical-snap-decisions", g_variant_new_string("true"));
       notify_notification_set_hint(nn, "x-canonical-non-shaped-icon", g_variant_new_string("true"));
       notify_notification_set_hint(nn, "x-canonical-private-affirmative-tint", g_variant_new_string("true"));
@@ -387,7 +369,6 @@ on_battery_property_changed (IndicatorPowerNotifier * self)
       ((new_power_level != POWER_LEVEL_OK) && new_discharging && !old_discharging))
     {
       notification_show (self);
-      play_low_battery_sound (self);
     }
   else if (!new_discharging || (new_power_level == POWER_LEVEL_OK))
     {
@@ -418,10 +399,6 @@ my_get_property (GObject     * o,
         g_value_set_object (value, p->battery);
         break;
 
-      case PROP_SOUND_PLAYER:
-        g_value_set_object (value, p->sound_player);
-        break;
-
       default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID (o, property_id, pspec);
     }
@@ -439,10 +416,6 @@ my_set_property (GObject       * o,
     {
       case PROP_BATTERY:
         indicator_power_notifier_set_battery (self, g_value_get_object(value));
-        break;
-
-      case PROP_SOUND_PLAYER:
-        indicator_power_notifier_set_sound_player (self, g_value_get_object(value));
         break;
 
       default:
@@ -463,7 +436,6 @@ my_dispose (GObject * o)
     }
 
   indicator_power_notifier_set_bus (self, NULL);
-  indicator_power_notifier_set_sound_player (self, NULL);
   notification_clear (self);
   indicator_power_notifier_set_battery (self, NULL);
   g_clear_object (&p->dbus_battery);
@@ -499,7 +471,7 @@ indicator_power_notifier_init (IndicatorPowerNotifier * self)
 
   p->cancellable = g_cancellable_new();
 
-  if (!instance_count++ && !notify_init("indicator-power-service"))
+  if (!instance_count++ && !notify_init(SERVICE_EXEC))
     g_critical("Unable to initialize libnotify! Notifications might not be shown.");
 
   p->accounts_service_sound_proxy_pending = TRUE;
@@ -532,13 +504,6 @@ indicator_power_notifier_class_init (IndicatorPowerNotifierClass * klass)
     G_TYPE_OBJECT,
     G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
 
-  properties[PROP_SOUND_PLAYER] = g_param_spec_object (
-    PROP_SOUND_PLAYER_NAME,
-    "Sound Player",
-    "The current sound player",
-    G_TYPE_OBJECT,
-    G_PARAM_READWRITE | G_PARAM_STATIC_STRINGS);
-
   g_object_class_install_properties (object_class, LAST_PROP, properties);
 }
 
@@ -547,12 +512,9 @@ indicator_power_notifier_class_init (IndicatorPowerNotifierClass * klass)
 ***/
 
 IndicatorPowerNotifier *
-indicator_power_notifier_new (IndicatorPowerSoundPlayer * sound_player)
+indicator_power_notifier_new (void)
 {
-  GObject * o = g_object_new (INDICATOR_TYPE_POWER_NOTIFIER,
-                              PROP_SOUND_PLAYER_NAME, sound_player,
-                              NULL);
-
+  GObject * o = g_object_new (INDICATOR_TYPE_POWER_NOTIFIER, NULL);
   return INDICATOR_POWER_NOTIFIER (o);
 }
 
@@ -588,26 +550,6 @@ indicator_power_notifier_set_battery (IndicatorPowerNotifier * self,
                                 G_CALLBACK(on_battery_property_changed), self);
       on_battery_property_changed (self);
     }
-}
-
-void
-indicator_power_notifier_set_sound_player (IndicatorPowerNotifier * self,
-                                           IndicatorPowerSoundPlayer * sound_player)
-{
-  priv_t * p;
-
-  g_return_if_fail(INDICATOR_IS_POWER_NOTIFIER(self));
-  g_return_if_fail((sound_player == NULL) || INDICATOR_IS_POWER_SOUND_PLAYER(sound_player));
-
-  p = get_priv (self);
-
-  if (p->sound_player == sound_player)
-    return;
-
-  g_clear_object(&p->sound_player);
-
-  if (sound_player != NULL)
-      p->sound_player = g_object_ref(sound_player);
 }
 
 void
