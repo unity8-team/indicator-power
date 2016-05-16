@@ -471,7 +471,7 @@ indicator_power_notifier_init (IndicatorPowerNotifier * self)
 
   p->cancellable = g_cancellable_new();
 
-  if (!instance_count++ && !notify_init("indicator-power-service"))
+  if (!instance_count++ && !notify_init(SERVICE_EXEC))
     g_critical("Unable to initialize libnotify! Notifications might not be shown.");
 
   p->accounts_service_sound_proxy_pending = TRUE;

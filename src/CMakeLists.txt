@@ -1,8 +1,3 @@
-set (SERVICE_LIB "indicatorpowerservice")
-set (SERVICE_EXEC "indicator-power-service")
-
-add_definitions(-DG_LOG_DOMAIN="Indicator-Power")
-
 # handwritten sources
 set(SERVICE_MANUAL_SOURCES
     brightness.c

@@ -6,12 +6,19 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 set(PROJECT_VERSION "14.10.0")
 set(PACKAGE ${CMAKE_PROJECT_NAME})
 set(GETTEXT_PACKAGE "indicator-power")
-add_definitions (-DGETTEXT_PACKAGE="${GETTEXT_PACKAGE}"
-                 -DGNOMELOCALEDIR="${CMAKE_INSTALL_FULL_LOCALEDIR}"
-                 -DLOW_BATTERY_SOUND="Low battery.ogg")
+add_definitions(
+  -DGETTEXT_PACKAGE="${GETTEXT_PACKAGE}"
+  -DG_LOG_DOMAIN="${GETTEXT_PACKAGE}"
+  -DGNOMELOCALEDIR="${CMAKE_INSTALL_FULL_LOCALEDIR}"
+  -DLOW_BATTERY_SOUND="Low battery.ogg"
+)
 
 option (enable_tests "Build the package's automatic tests." ON)
 option (enable_lcov "Generate lcov code coverage reports." ON)
+
+set(SERVICE_LIB "indicatorpowerservice")
+set(SERVICE_EXEC "indicator-power-service")
+add_definitions(-DSERVICE_EXEC="${SERVICE_EXEC}")
 
 ##
 ##  GNU standard installation directories
