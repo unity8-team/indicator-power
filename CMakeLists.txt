@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 2.8.9)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake)
 
-set(PROJECT_VERSION "14.10.0")
+set(PROJECT_VERSION "16.10.0")
 set(PACKAGE ${CMAKE_PROJECT_NAME})
 set(GETTEXT_PACKAGE "indicator-power")
 add_definitions(
