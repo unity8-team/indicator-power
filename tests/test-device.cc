@@ -735,7 +735,9 @@ TEST_F(DeviceTest, ChoosePrimary)
     { "/some/path/f0", UP_DEVICE_KIND_BATTERY,    UP_DEVICE_STATE_FULLY_CHARGED,  0, 100.0 }, // 6
     { "/some/path/m0", UP_DEVICE_KIND_MOUSE,      UP_DEVICE_STATE_DISCHARGING,   20,  80.0 }, // 7
     { "/some/path/m1", UP_DEVICE_KIND_MOUSE,      UP_DEVICE_STATE_FULLY_CHARGED,  0, 100.0 }, // 8
-    { "/some/path/pw", UP_DEVICE_KIND_LINE_POWER, UP_DEVICE_STATE_UNKNOWN,        0,   0.0 }  // 9
+    { "/some/path/pw", UP_DEVICE_KIND_LINE_POWER, UP_DEVICE_STATE_UNKNOWN,        0,   0.0 }, // 9
+
+    { "/some/path/pu", UP_DEVICE_KIND_PHONE,      UP_DEVICE_STATE_UNKNOWN,        0,  61.0 }, // 10
   };
 
   std::vector<IndicatorPowerDevice*> devices;
@@ -770,7 +772,13 @@ TEST_F(DeviceTest, ChoosePrimary)
 
     { { 0, 9 }, descriptions[0] }, // everything comes before power lines
     { { 3, 9 }, descriptions[3] },
-    { { 7, 9 }, descriptions[7] }
+    { { 7, 9 }, descriptions[7] },
+
+    /* https://bugs.launchpad.net/ubuntu/+source/indicator-power/+bug/1470080
+       We shouldn’t show a device in the menu title when we don’t know whether it’s charging or discharging,
+       if for other things we *do* know whether they’re charging or discharging. */
+    { { 6, 10 }, descriptions[6] }, 
+    { { 10 },    descriptions[10] }
   };
   
   for(const auto& test : tests)
