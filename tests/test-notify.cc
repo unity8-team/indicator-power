@@ -17,7 +17,6 @@
  *   Charles Kerr <charles.kerr@canonical.com>
  */
 
-
 #include "test-dbus-fixture.h"
 
 #include "dbus-shared.h"
@@ -38,18 +37,85 @@ class NotifyFixture: public TestDBusFixture
 {
     typedef TestDBusFixture super;
 
+    void start_unity7_notifications()
+    {
+        start_notifications("{ \"capabilities\": \""
+            "append "
+            "body "
+            "body-markup "
+            "icon-static "
+            "image/svg+xml "
+            "private-icon-only "
+            "private-synchronous "
+            "truncation "
+            "x-canonical-append "
+            "x-canonical-private-icon-only "
+            "x-canonical-private-synchronous "
+            "x-canonical-truncation"
+            "\" }"
+        );
+    }
+
+    void start_unity8_notifications()
+    {
+        start_notifications("{ \"capabilities\": \""
+            "body "
+            "body-markup "
+            "icon-static "
+            "image/svg+xml "
+            "sound-file "
+            "suppress-sound "
+            "urgency "
+            "value "
+            "x-canonical-non-shaped-icon "
+            "x-canonical-private-affirmative-tint "
+            "x-canonical-private-icon-only "
+            "x-canonical-private-menu-model "
+            "x-canonical-private-rejection-tint "
+            "x-canonical-private-synchronous "
+            "x-canonical-secondary-icon "
+            "x-canonical-snap-decisions "
+            "x-canonical-snap-decisions-swipe "
+            "x-canonical-snap-decisions-timeout "
+            "x-canonical-switch-to-application "
+            "x-canonical-truncation "
+            "x-canonical-value-bar-tint"
+            "\" }"
+        );
+    }
+
+    void start_notifications(const char* parameters)
+    {
+        std::array<const char*,8> child_argv = {
+            "python3", "-m", "dbusmock",
+            "--template", "notification_daemon",
+            "--parameters", parameters,
+            nullptr
+        };
+        GError* error {};
+        g_spawn_async(
+            nullptr /*working directory*/,
+            const_cast<char**>(child_argv.data()),
+            nullptr /*envp*/,
+            G_SPAWN_SEARCH_PATH,
+            nullptr /*child_setup*/,
+            nullptr /*user_data*/,
+            nullptr /*child_pid*/,
+            &error
+        );
+        g_assert_no_error(error);
+
+        wait_for_name_owned(m_bus, "org.freedesktop.Notifications");
+    }
+
+
 protected:
 
     void SetUp() override
     {
         super::SetUp();
 
-        // start the notifications service
-        const gchar* child_argv[] = { "python3", TEST_SCRIPTS_DIR "/start-mock-notifications.py", "--unity8", nullptr };
-        GError* error {};
-        g_spawn_async(nullptr, (gchar**)child_argv, nullptr, G_SPAWN_SEARCH_PATH, nullptr, nullptr, nullptr, &error);
-        g_assert_no_error(error);
-        ASSERT_TRUE(wait_for_name_owned(m_bus, "org.freedesktop.Notifications"));
+        start_unity8_notifications();
 
         notify_init(G_LOG_DOMAIN);
     }
