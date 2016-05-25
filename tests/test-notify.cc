@@ -18,7 +18,7 @@
  */
 
 
-#include "dbus-fixture.h"
+#include "test-dbus-fixture.h"
 
 #include "dbus-shared.h"
 #include "device.h"
@@ -34,44 +34,31 @@
 ****
 ***/
 
-class NotifyFixture: public DBusFixture
+class NotifyFixture: public TestDBusFixture
 {
-    typedef DBusFixture super;
+    typedef TestDBusFixture super;
 
 protected:
-
-    GTestDBus* m_test_bus {};
-
-    static constexpr char const * APP_NAME {"indicator-power-service"};
-
-    void BeforeBusSetUp() override
-    {
-        // use a fake bus
-        m_test_bus = g_test_dbus_new(G_TEST_DBUS_NONE);
-        g_test_dbus_up(m_test_bus);
-
-        // start the notifications service
-        const gchar* child_argv[] = { "python3", TEST_SCRIPTS_DIR "/start-mock-notifications.py", "--unity8", nullptr };
-        GError* error = nullptr;
-        g_spawn_async(nullptr, (gchar**)child_argv, nullptr, G_SPAWN_SEARCH_PATH, nullptr, nullptr, nullptr, &error);
-        g_assert_no_error(error);
-    }
 
     void SetUp() override
     {
         super::SetUp();
 
-        wait_for_bus_name(G_BUS_TYPE_SESSION, "org.freedesktop.Notifications");
-        notify_init(APP_NAME);
+        // start the notifications service
+        const gchar* child_argv[] = { "python3", TEST_SCRIPTS_DIR "/start-mock-notifications.py", "--unity8", nullptr };
+        GError* error {};
+        g_spawn_async(nullptr, (gchar**)child_argv, nullptr, G_SPAWN_SEARCH_PATH, nullptr, nullptr, nullptr, &error);
+        g_assert_no_error(error);
+        ASSERT_TRUE(wait_for_name_owned(m_bus, "org.freedesktop.Notifications"));
+
+        notify_init(G_LOG_DOMAIN);
     }
 
     void TearDown() override
     {
         notify_uninit();
 
-        DBusFixture::TearDown();
-
-        g_clear_object(&m_test_bus);
+        super::TearDown();
     }
 };
 
