@@ -496,15 +496,12 @@ TEST_F(DeviceTest, IconNames)
       g_string_append_printf (expected, "%s-caution-symbolic;", kind_str);
       g_string_append_printf (expected, "%s-caution", kind_str);
       EXPECT_ICON_NAMES_EQ(expected->str, device);
-      g_string_truncate (expected, 0);
 
-      // state unknown
-      g_object_set (o, INDICATOR_POWER_DEVICE_KIND, kind,
-                       INDICATOR_POWER_DEVICE_STATE, UP_DEVICE_STATE_UNKNOWN,
+      // if we know the charge level, but not that it’s charging, we should use the same icons as when it’s discharging. 
+      // https://wiki.ubuntu.com/Power?action=diff&rev2=78&rev1=77
+      // https://bugs.launchpad.net/ubuntu/+source/indicator-power/+bug/1470080
+      g_object_set (o, INDICATOR_POWER_DEVICE_STATE, UP_DEVICE_STATE_UNKNOWN,
                        NULL);
-      g_string_append_printf (expected, "%s-missing-symbolic;", kind_str);
-      g_string_append_printf (expected, "gpm-%s-missing;", kind_str);
-      g_string_append_printf (expected, "%s-missing", kind_str);
       EXPECT_ICON_NAMES_EQ(expected->str, device);
       g_string_truncate (expected, 0);
   }
