@@ -497,7 +497,8 @@ TEST_F(DeviceTest, IconNames)
       g_string_append_printf (expected, "%s-caution", kind_str);
       EXPECT_ICON_NAMES_EQ(expected->str, device);
 
-      // if we know the charge level, but not that it’s charging, we should use the same icons as when it’s discharging. 
+      // if we know the charge level, but not that it’s charging,
+      // then we should use the same icons as when it’s discharging. 
       // https://wiki.ubuntu.com/Power?action=diff&rev2=78&rev1=77
       // https://bugs.launchpad.net/ubuntu/+source/indicator-power/+bug/1470080
       g_object_set (o, INDICATOR_POWER_DEVICE_STATE, UP_DEVICE_STATE_UNKNOWN,
@@ -771,9 +772,10 @@ TEST_F(DeviceTest, ChoosePrimary)
     { { 3, 9 }, descriptions[3] },
     { { 7, 9 }, descriptions[7] },
 
-    /* https://bugs.launchpad.net/ubuntu/+source/indicator-power/+bug/1470080
-       We shouldn’t show a device in the menu title when we don’t know whether it’s charging or discharging,
-       if for other things we *do* know whether they’re charging or discharging. */
+    /* https://bugs.launchpad.net/ubuntu/+source/indicator-power/+bug/1470080/comments/10
+       We shouldn’t show a device in the menu title when we don’t know whether
+       it’s charging or discharging, if for other things we *do* know whether
+       they’re charging or discharging. */
     { { 6, 10 }, descriptions[6] }, 
     { { 10 },    descriptions[10] }
   };
