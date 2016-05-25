@@ -19,6 +19,11 @@ set_directory_properties (PROPERTIES
                           ADDITIONAL_MAKE_CLEAN_FILES gschemas.compiled)
 set_source_files_properties (gschemas.compiled GENERATED)
 
+# make a XDG_DATA_HOME for sounds/
+set(XDG_DATA_HOME "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_INSTALL_DATADIR}")
+add_definitions(-DXDG_DATA_HOME="${XDG_DATA_HOME}")
+file(COPY "${CMAKE_SOURCE_DIR}/data/sounds" DESTINATION "${XDG_DATA_HOME}/${CMAKE_PROJECT_NAME}")
+
 # GSettings:
 # compile the indicator-power schema into a gschemas.compiled file in this directory,
 # and help the tests to find that file by setting -DSCHEMA_DIR
@@ -47,8 +52,8 @@ function(add_test_by_name name)
   set (TEST_NAME ${name})
   add_executable (${TEST_NAME} ${TEST_NAME}.cc gschemas.compiled)
   add_test (${TEST_NAME} ${TEST_NAME})
-  add_dependencies (${TEST_NAME} libindicatorpowerservice)
-  target_link_libraries (${TEST_NAME} indicatorpowerservice gtest ${DBUSTEST_LIBRARIES} ${SERVICE_DEPS_LIBRARIES} ${GTEST_LIBS})
+  add_dependencies (${TEST_NAME} ${SERVICE_LIB})
+  target_link_libraries (${TEST_NAME} ${SERVICE_LIB} gtest ${DBUSTEST_LIBRARIES} ${SERVICE_DEPS_LIBRARIES} ${GTEST_LIBS})
 endfunction()
 add_test_by_name(test-notify)
 add_test(NAME dear-reader-the-next-test-takes-80-seconds COMMAND true)

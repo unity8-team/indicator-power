@@ -1,5 +1,5 @@
 /*
- * Copyright 2014 Canonical Ltd.
+ * Copyright 2014-2016 Canonical Ltd.
  *
  * This program is free software: you can redistribute it and/or modify it
  * under the terms of the GNU General Public License version 3, as published
@@ -28,7 +28,6 @@
 
 #include <libnotify/notify.h>
 
-#include <glib.h>
 #include <gio/gio.h>
 
 /***
@@ -246,6 +245,12 @@ TEST_F(NotifyFixture, EventsThatChangeNotifications)
                                              percent_low + 1.0,
                                              UP_DEVICE_STATE_DISCHARGING,
                                              30);
+
+  // the file we expect to play on a low battery notification...
+  const char* expected_file = XDG_DATA_HOME "/" GETTEXT_PACKAGE "/sounds/" LOW_BATTERY_SOUND;
+  char* tmp = g_filename_to_uri(expected_file, nullptr, nullptr);
+  const std::string low_power_uri {tmp};
+  g_clear_pointer(&tmp, g_free);
 
   // set up a notifier and give it the battery so changing the battery's
   // charge should show up on the bus.

@@ -1,11 +1,7 @@
-set (SERVICE_LIB "indicatorpowerservice")
-set (SERVICE_EXEC "indicator-power-service")
-
-add_definitions(-DG_LOG_DOMAIN="Indicator-Power")
-
 # handwritten sources
 set(SERVICE_MANUAL_SOURCES
     brightness.c
+    datafiles.c
     device-provider-mock.c
     device-provider-upower.c
     device-provider.c
@@ -29,6 +25,11 @@ add_gdbus_codegen_with_namespace(SERVICE_GENERATED_SOURCES dbus-testing
                                  com.canonical.indicator.power
                                  Dbus
                                  ${CMAKE_SOURCE_DIR}/data/com.canonical.indicator.power.Testing.xml)
+add_gdbus_codegen_with_namespace(SERVICE_GENERATED_SOURCES dbus-accounts-sound
+                                 com.ubuntu.touch
+                                 Dbus
+                                 /usr/share/accountsservice/interfaces/com.ubuntu.touch.AccountsService.Sound.xml)
+
 # add the bin dir to our include path so the code can find the generated header files
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
