@@ -434,7 +434,7 @@ indicator_power_device_get_icon_names (const IndicatorPowerDevice * device)
           }
         g_ptr_array_add (names, g_strdup_printf ("%s-%s-charging-symbolic", kind_str, suffix_str));
         g_ptr_array_add (names, g_strdup_printf ("%s-%s-charging", kind_str, suffix_str));
-        break;
+        // NB: fallthrough to use foo-bar as a fallback for foo-bar-charging
 
       case UP_DEVICE_STATE_PENDING_CHARGE:
       case UP_DEVICE_STATE_DISCHARGING:
