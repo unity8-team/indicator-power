@@ -44,7 +44,7 @@ class GlibFixture : public ::testing::Test
     {
       setlocale(LC_ALL, "C.UTF-8");
 
-      loop = g_main_loop_new(nullptr, false);
+      m_loop = g_main_loop_new(nullptr, false);
 
       // only use local, temporary settings
       g_assert(g_setenv("GSETTINGS_SCHEMA_DIR", SCHEMA_DIR, true));
@@ -62,7 +62,7 @@ class GlibFixture : public ::testing::Test
     {
       g_test_assert_expected_messages ();
 
-      g_clear_pointer(&loop, g_main_loop_unref);
+      g_clear_pointer(&m_loop, g_main_loop_unref);
     }
 
     void expectLogMessage (const gchar *domain, GLogLevelFlags level, const gchar *pattern)
@@ -94,11 +94,11 @@ class GlibFixture : public ::testing::Test
       // wait for the signal or for timeout, whichever comes first
       const auto handler_id = g_signal_connect_swapped(o, signal,
                                                        G_CALLBACK(g_main_loop_quit),
-                                                       loop);
+                                                       m_loop);
       const auto timeout_id = g_timeout_add_seconds(timeout_seconds,
                                                     wait_for_signal__timeout,
-                                                    loop);
-      g_main_loop_run(loop);
+                                                    m_loop);
+      g_main_loop_run(m_loop);
       g_source_remove(timeout_id);
       g_signal_handler_disconnect(o, handler_id);
     }
@@ -106,8 +106,8 @@ class GlibFixture : public ::testing::Test
     /* convenience func to loop for N msec */
     void wait_msec(int msec=50)
     {
-      const auto id = g_timeout_add(msec, wait_msec__timeout, loop);
-      g_main_loop_run(loop);
+      const auto id = g_timeout_add(msec, wait_msec__timeout, m_loop);
+      g_main_loop_run(m_loop);
       g_source_remove(id);
     }
 
@@ -148,8 +148,8 @@ class GlibFixture : public ::testing::Test
         g_main_loop_quit(tmp->loop);
       };
 
-      const auto timeout_id = g_timeout_add(timeout_msec, wait_msec__timeout, loop);
-      data.loop = loop;
+      const auto timeout_id = g_timeout_add(timeout_msec, wait_msec__timeout, m_loop);
+      data.loop = m_loop;
       const auto watch_id = g_bus_watch_name_on_connection(
           connection,
           name,
@@ -160,7 +160,7 @@ class GlibFixture : public ::testing::Test
           nullptr // user_data_free_func
       );
 
-      g_main_loop_run(loop);
+      g_main_loop_run(m_loop);
 
       g_bus_unwatch_name(watch_id);
       g_source_remove(timeout_id);
@@ -223,6 +223,6 @@ class GlibFixture : public ::testing::Test
       );
     }
 
-    GMainLoop* loop {};
+    GMainLoop* m_loop {};
 };
 

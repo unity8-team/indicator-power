@@ -17,8 +17,7 @@
  *   Charles Kerr <charles.kerr@canonical.com>
  */
 
-
-#include "glib-fixture.h"
+#include "test-dbus-fixture.h"
 
 #include "dbus-shared.h"
 #include "device.h"
@@ -26,181 +25,107 @@
 
 #include <gtest/gtest.h>
 
-#include <libdbustest/dbus-test.h>
-
 #include <libnotify/notify.h>
 
-#include <glib.h>
 #include <gio/gio.h>
 
 /***
 ****
 ***/
 
-class NotifyFixture: public GlibFixture
+class NotifyFixture: public TestDBusFixture
 {
-private:
+    typedef TestDBusFixture super;
 
-  typedef GlibFixture super;
+    void start_unity7_notifications()
+    {
+        start_notifications("{ \"capabilities\": \""
+            "append "
+            "body "
+            "body-markup "
+            "icon-static "
+            "image/svg+xml "
+            "private-icon-only "
+            "private-synchronous "
+            "truncation "
+            "x-canonical-append "
+            "x-canonical-private-icon-only "
+            "x-canonical-private-synchronous "
+            "x-canonical-truncation"
+            "\" }"
+        );
+    }
 
-  static constexpr char const * NOTIFY_BUSNAME   {"org.freedesktop.Notifications"};
-  static constexpr char const * NOTIFY_INTERFACE {"org.freedesktop.Notifications"};
-  static constexpr char const * NOTIFY_PATH      {"/org/freedesktop/Notifications"};
+    void start_unity8_notifications()
+    {
+        start_notifications("{ \"capabilities\": \""
+            "body "
+            "body-markup "
+            "icon-static "
+            "image/svg+xml "
+            "sound-file "
+            "suppress-sound "
+            "urgency "
+            "value "
+            "x-canonical-non-shaped-icon "
+            "x-canonical-private-affirmative-tint "
+            "x-canonical-private-icon-only "
+            "x-canonical-private-menu-model "
+            "x-canonical-private-rejection-tint "
+            "x-canonical-private-synchronous "
+            "x-canonical-secondary-icon "
+            "x-canonical-snap-decisions "
+            "x-canonical-snap-decisions-swipe "
+            "x-canonical-snap-decisions-timeout "
+            "x-canonical-switch-to-application "
+            "x-canonical-truncation "
+            "x-canonical-value-bar-tint"
+            "\" }"
+        );
+    }
+
+    void start_notifications(const char* parameters)
+    {
+        std::array<const char*,8> child_argv = {
+            "python3", "-m", "dbusmock",
+            "--template", "notification_daemon",
+            "--parameters", parameters,
+            nullptr
+        };
+        GError* error {};
+        g_spawn_async(
+            nullptr /*working directory*/,
+            const_cast<char**>(child_argv.data()),
+            nullptr /*envp*/,
+            G_SPAWN_SEARCH_PATH,
+            nullptr /*child_setup*/,
+            nullptr /*user_data*/,
+            nullptr /*child_pid*/,
+            &error
+        );
+        g_assert_no_error(error);
+
+        wait_for_name_owned(m_bus, "org.freedesktop.Notifications");
+    }
+
 
 protected:
 
-  DbusTestService * service = nullptr;
-  DbusTestDbusMock * mock = nullptr;
-  DbusTestDbusMockObject * obj = nullptr;
-  GDBusConnection * bus = nullptr;
+    void SetUp() override
+    {
+        super::SetUp();
 
-  static constexpr int FIRST_NOTIFY_ID {1234};
+        start_unity8_notifications();
 
-  static constexpr int NOTIFICATION_CLOSED_EXPIRED   {1};
-  static constexpr int NOTIFICATION_CLOSED_DISMISSED {2};
-  static constexpr int NOTIFICATION_CLOSED_API       {3};
-  static constexpr int NOTIFICATION_CLOSED_UNDEFINED {4};
+        notify_init(G_LOG_DOMAIN);
+    }
 
-  static constexpr char const * METHOD_CLOSE {"CloseNotification"};
-  static constexpr char const * METHOD_NOTIFY {"Notify"};
-  static constexpr char const * METHOD_GET_CAPS {"GetCapabilities"};
-  static constexpr char const * METHOD_GET_INFO {"GetServerInformation"};
-  static constexpr char const * SIGNAL_CLOSED {"NotificationClosed"};
+    void TearDown() override
+    {
+        notify_uninit();
 
-  static constexpr char const * HINT_TIMEOUT {"x-canonical-snap-decisions-timeout"};
-
-protected:
-
-  void SetUp()
-  {
-    super::SetUp();
-
-    g_setenv ("XDG_DATA_HOME", XDG_DATA_HOME, TRUE);
-
-    // init DBusMock / dbus-test-runner
-
-    service = dbus_test_service_new(nullptr);
-
-    GError * error = nullptr;
-    mock = dbus_test_dbus_mock_new(NOTIFY_BUSNAME);
-    obj = dbus_test_dbus_mock_get_object(mock,
-                                         NOTIFY_PATH,
-                                         NOTIFY_INTERFACE,
-                                         &error);
-    g_assert_no_error (error);
-  
-    // METHOD_GET_INFO 
-    dbus_test_dbus_mock_object_add_method(mock, obj, METHOD_GET_INFO,
-                                          nullptr,
-                                          G_VARIANT_TYPE("(ssss)"),
-                                          "ret = ('mock-notify', 'test vendor', '1.0', '1.1')",
-                                          &error);
-    g_assert_no_error (error);
-
-    // METHOD_NOTIFY
-    auto str = g_strdup_printf("try:\n"
-                               "  self.NextNotifyId\n"
-                               "except AttributeError:\n"
-                               "  self.NextNotifyId = %d\n"
-                               "ret = self.NextNotifyId\n"
-                               "self.NextNotifyId += 1\n",
-                               FIRST_NOTIFY_ID);
-    dbus_test_dbus_mock_object_add_method(mock, obj, METHOD_NOTIFY,
-                                          G_VARIANT_TYPE("(susssasa{sv}i)"),
-                                          G_VARIANT_TYPE_UINT32,
-                                          str,
-                                          &error);
-    g_assert_no_error (error);
-    g_free (str);
-
-    // METHOD_CLOSE 
-    str = g_strdup_printf("self.EmitSignal('%s', '%s', 'uu', [ args[0], %d ])",
-                          NOTIFY_INTERFACE,
-                          SIGNAL_CLOSED,
-                          NOTIFICATION_CLOSED_API);
-    dbus_test_dbus_mock_object_add_method(mock, obj, METHOD_CLOSE,
-                                          G_VARIANT_TYPE("(u)"),
-                                          nullptr,
-                                          str,
-                                          &error);
-    g_assert_no_error (error);
-    g_free (str);
-
-    dbus_test_service_add_task(service, DBUS_TEST_TASK(mock));
-    dbus_test_service_start_tasks(service);
-
-    bus = g_bus_get_sync(G_BUS_TYPE_SESSION, nullptr, nullptr);
-    g_dbus_connection_set_exit_on_close(bus, FALSE);
-    g_object_add_weak_pointer(G_OBJECT(bus), reinterpret_cast<gpointer*>(&bus));
-
-    notify_init(SERVICE_EXEC);
-  }
-
-  virtual void TearDown()
-  {
-    notify_uninit();
-
-    g_clear_object(&mock);
-    g_clear_object(&service);
-    g_object_unref(bus);
-
-    // wait a little while for the scaffolding to shut down,
-    // but don't block on it forever...
-    unsigned int cleartry = 0;
-    while ((bus != nullptr) && (cleartry < 50))
-      {
-        g_usleep(100000);
-        while (g_main_pending())
-          g_main_iteration(true);
-        cleartry++;
-      }
-
-    super::TearDown();
-  }
-
-  /***
-  ****
-  ***/
-
-  int get_notify_call_count() const
-  {
-    guint len {0u};
-    GError* error {nullptr};
-    dbus_test_dbus_mock_object_get_method_calls(mock, obj, METHOD_NOTIFY, &len, &error);
-    g_assert_no_error(error);
-    return len;
-  }
-
-  std::string get_notify_call_sound_file(int call_number)
-  {
-    std::string ret;
-
-    guint len {0u};
-    GError* error {nullptr};
-    auto calls = dbus_test_dbus_mock_object_get_method_calls(mock, obj, METHOD_NOTIFY, &len, &error);
-    g_return_val_if_fail(int(len) > call_number, ret);
-    g_assert_no_error(error);
-
-    constexpr int HINTS_PARAM_POSITION {6};
-    const auto& call = calls[call_number];
-    g_return_val_if_fail(g_variant_n_children(call.params) > HINTS_PARAM_POSITION, ret);
-    auto hints = g_variant_get_child_value(call.params, HINTS_PARAM_POSITION);
-    const gchar* sound_file = nullptr;
-    auto success = g_variant_lookup(hints, "sound-file", "&s", &sound_file);
-    g_return_val_if_fail(success, ret);
-    if (sound_file != nullptr)
-      ret = sound_file;
-    g_clear_pointer(&hints, g_variant_unref);
-
-    return ret;
-  }
-
-  void clear_method_calls()
-  {
-    GError* error{nullptr};
-    ASSERT_TRUE(dbus_test_dbus_mock_object_clear_method_calls(mock, obj, &error));
-    g_assert_no_error(error);
-  }
+        super::TearDown();
+    }
 };
 
 /***
@@ -215,7 +140,6 @@ TEST_F(NotifyFixture, HelloWorld)
 /***
 ****
 ***/
-
 
 namespace
 {
@@ -319,11 +243,11 @@ TEST_F(NotifyFixture, LevelsDuringBatteryDrain)
   // charge should show up on the bus.
   auto notifier = indicator_power_notifier_new ();
   indicator_power_notifier_set_battery (notifier, battery);
-  indicator_power_notifier_set_bus (notifier, bus);
+  indicator_power_notifier_set_bus (notifier, m_bus);
   wait_msec();
 
   ChangedParams changed_params;
-  auto sub_tag = g_dbus_connection_signal_subscribe (bus,
+  auto sub_tag = g_dbus_connection_signal_subscribe (m_bus,
                                                      nullptr,
                                                      "org.freedesktop.DBus.Properties",
                                                      "PropertiesChanged",
@@ -358,9 +282,9 @@ TEST_F(NotifyFixture, LevelsDuringBatteryDrain)
     }
 
   // cleanup
-  g_dbus_connection_signal_unsubscribe (bus, sub_tag);
-  g_object_unref (battery);
+  g_dbus_connection_signal_unsubscribe (m_bus, sub_tag);
   g_object_unref (notifier);
+  g_object_unref (battery);
 }
 
 /***
@@ -369,18 +293,6 @@ TEST_F(NotifyFixture, LevelsDuringBatteryDrain)
 
 TEST_F(NotifyFixture, EventsThatChangeNotifications)
 {
-  // GetCapabilities returns an array containing 'actions', so that we'll
-  // get snap decisions and the 'IsWarning' property
-  GError * error = nullptr;
-  dbus_test_dbus_mock_object_add_method (mock,
-                                         obj,
-                                         METHOD_GET_CAPS,
-                                         nullptr,
-                                         G_VARIANT_TYPE_STRING_ARRAY,
-                                         "ret = ['actions', 'body']",
-                                         &error);
-  g_assert_no_error (error);
-
   auto battery = indicator_power_device_new ("/object/path",
                                              UP_DEVICE_KIND_BATTERY,
                                              percent_low + 1.0,
@@ -397,9 +309,9 @@ TEST_F(NotifyFixture, EventsThatChangeNotifications)
   // charge should show up on the bus.
   auto notifier = indicator_power_notifier_new ();
   indicator_power_notifier_set_battery (notifier, battery);
-  indicator_power_notifier_set_bus (notifier, bus);
+  indicator_power_notifier_set_bus (notifier, m_bus);
   ChangedParams changed_params;
-  auto sub_tag = g_dbus_connection_signal_subscribe (bus,
+  auto sub_tag = g_dbus_connection_signal_subscribe (m_bus,
                                                      nullptr,
                                                      "org.freedesktop.DBus.Properties",
                                                      "PropertiesChanged",
@@ -423,9 +335,6 @@ TEST_F(NotifyFixture, EventsThatChangeNotifications)
   EXPECT_EQ (FIELD_POWER_LEVEL|FIELD_IS_WARNING, changed_params.fields);
   EXPECT_EQ (indicator_power_notifier_get_power_level(battery), changed_params.power_level);
   EXPECT_TRUE (changed_params.is_warning);
-  EXPECT_EQ (1, get_notify_call_count());
-  EXPECT_EQ (low_power_uri, get_notify_call_sound_file(0));
-  clear_method_calls();
 
   // now test that the warning changes if the level goes down even lower...
   changed_params = ChangedParams();
@@ -433,9 +342,6 @@ TEST_F(NotifyFixture, EventsThatChangeNotifications)
   wait_msec();
   EXPECT_EQ (FIELD_POWER_LEVEL, changed_params.fields);
   EXPECT_STREQ (POWER_LEVEL_STR_VERY_LOW, changed_params.power_level.c_str());
-  EXPECT_EQ (1, get_notify_call_count());
-  EXPECT_EQ (low_power_uri, get_notify_call_sound_file(0));
-  clear_method_calls();
 
   // ...and that the warning is taken down if the battery is plugged back in...
   changed_params = ChangedParams();
@@ -443,7 +349,6 @@ TEST_F(NotifyFixture, EventsThatChangeNotifications)
   wait_msec();
   EXPECT_EQ (FIELD_IS_WARNING, changed_params.fields);
   EXPECT_FALSE (changed_params.is_warning);
-  EXPECT_EQ (0, get_notify_call_count());
 
   // ...and that it comes back if we unplug again...
   changed_params = ChangedParams();
@@ -451,9 +356,6 @@ TEST_F(NotifyFixture, EventsThatChangeNotifications)
   wait_msec();
   EXPECT_EQ (FIELD_IS_WARNING, changed_params.fields);
   EXPECT_TRUE (changed_params.is_warning);
-  EXPECT_EQ (1, get_notify_call_count());
-  EXPECT_EQ (low_power_uri, get_notify_call_sound_file(0));
-  clear_method_calls();
 
   // ...and that it's taken down if the power level is OK
   changed_params = ChangedParams();
@@ -462,10 +364,9 @@ TEST_F(NotifyFixture, EventsThatChangeNotifications)
   EXPECT_EQ (FIELD_POWER_LEVEL|FIELD_IS_WARNING, changed_params.fields);
   EXPECT_STREQ (POWER_LEVEL_STR_OK, changed_params.power_level.c_str());
   EXPECT_FALSE (changed_params.is_warning);
-  EXPECT_EQ (0, get_notify_call_count());
 
   // cleanup
-  g_dbus_connection_signal_unsubscribe (bus, sub_tag);
+  g_dbus_connection_signal_unsubscribe (m_bus, sub_tag);
   g_object_unref (notifier);
   g_object_unref (battery);
 }
