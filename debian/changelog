@@ -1,3 +1,11 @@
+indicator-power (12.10.6+16.10.20160526.2-0ubuntu1) yakkety; urgency=medium
+
+  * Fix bug that chose the wrong header icon if a connected device has a
+    charge but its charging/discharging state is unknown. (LP: #1470080)
+  * In tests, use python-dbusmock's notification_daemon mock
+
+ -- Charles Kerr <charles.kerr@canonical.com>  Thu, 26 May 2016 20:23:39 +0000
+
 indicator-power (12.10.6+16.04.20160516.1-0ubuntu1) xenial; urgency=medium
 
   * Fix the fallback power icon so the battery icon doesn't show red
