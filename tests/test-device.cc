@@ -819,11 +819,11 @@ namespace
   {
     auto tokens = g_strsplit(str.c_str(), " ", 0);
     g_assert(5u == g_strv_length(tokens));
-    const auto kind {str2kind(tokens[0])};
-    const auto state {str2state(tokens[1])};
-    const time_t time {atoi(tokens[2])};
-    const double pct {strtod(tokens[3],nullptr)};
-    const char* path {!g_strcmp0(tokens[4],"nopath") ? nullptr : tokens[4]};
+    const auto kind = str2kind(tokens[0]);
+    const auto state = str2state(tokens[1]);
+    const time_t time = atoi(tokens[2]);
+    const double pct = strtod(tokens[3],nullptr);
+    const char* path = !g_strcmp0(tokens[4],"nopath") ? nullptr : tokens[4];
     auto ret = indicator_power_device_new(path, kind, pct, state, time);
     g_strfreev(tokens);
     return ret;
