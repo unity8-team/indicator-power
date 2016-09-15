@@ -1,3 +1,9 @@
+indicator-power (12.10.6+16.10.20160915.1-0ubuntu1) yakkety; urgency=medium
+
+  * Add systemd user session unit file
+
+ -- Ted Gould <ted@gould.cx>  Thu, 15 Sep 2016 19:35:23 +0000
+
 indicator-power (12.10.6+16.10.20160708-0ubuntu1) yakkety; urgency=medium
 
   [ Charles Kerr ]
