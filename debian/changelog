@@ -1,3 +1,9 @@
+indicator-power (12.10.6+17.04.20161025-0ubuntu1) zesty; urgency=medium
+
+  * Add show-time and show-percentage actions to the phone profile
+
+ -- Lukáš Tinkl <lukas.tinkl@canonical.com>  Tue, 25 Oct 2016 11:52:18 +0000
+
 indicator-power (12.10.6+17.04.20161021-0ubuntu1) zesty; urgency=medium
 
   [ Ted Gould ]
