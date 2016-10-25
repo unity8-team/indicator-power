@@ -657,6 +657,14 @@ create_phone_settings_section(IndicatorPowerService * self)
       g_object_unref(item);
     }
 
+  g_menu_append (section,
+                 _("Show Time in Menu Bar"),
+                 "indicator.show-time");
+
+  g_menu_append (section,
+                 _("Show Percentage in Menu Bar"),
+                 "indicator.show-percentage");
+
   g_menu_append(section, _("Battery settings…"), "indicator.activate-phone-settings");
 
   return G_MENU_MODEL(section);
