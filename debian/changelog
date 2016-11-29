@@ -1,3 +1,11 @@
+indicator-power (12.10.6+17.04.20161129.2-0ubuntu1) zesty; urgency=medium
+
+  [ Michael Terry ]
+  * Work inside a snap by prefixing hard coded paths with $SNAP. (LP:
+    #1629009)
+
+ -- charles.kerr@canonical.com <charles.kerr@canonical.com>  Tue, 29 Nov 2016 19:55:20 +0000
+
 indicator-power (12.10.6+17.04.20161021-0ubuntu1) zesty; urgency=medium
 
   [ Ted Gould ]
