@@ -190,7 +190,8 @@ TEST_F(DeviceTest, New)
                                                               UP_DEVICE_KIND_BATTERY,
                                                               50.0,
                                                               UP_DEVICE_STATE_CHARGING,
-                                                              30);
+                                                              30,
+                                                              TRUE);
   ASSERT_TRUE (device != NULL);
   ASSERT_TRUE (INDICATOR_IS_POWER_DEVICE(device));
   ASSERT_EQ (UP_DEVICE_KIND_BATTERY, indicator_power_device_get_kind(device));
@@ -198,6 +199,7 @@ TEST_F(DeviceTest, New)
   ASSERT_STREQ ("/object/path", indicator_power_device_get_object_path(device));
   ASSERT_EQ (50, int(indicator_power_device_get_percentage(device)));
   ASSERT_EQ (30, indicator_power_device_get_time(device));
+  ASSERT_TRUE (indicator_power_device_get_power_supply(device));
 
   // cleanup
   g_object_unref (device);
@@ -205,13 +207,14 @@ TEST_F(DeviceTest, New)
 
 TEST_F(DeviceTest, NewFromVariant)
 {
-  auto variant = g_variant_new("(susdut)",
+  auto variant = g_variant_new("(susdutb)",
                                "/object/path",
                                guint32(UP_DEVICE_KIND_BATTERY),
                                "icon",
                                50.0,
                                guint32(UP_DEVICE_STATE_CHARGING),
-                               guint64(30));
+                               guint64(30),
+                               TRUE);
   IndicatorPowerDevice * device = indicator_power_device_new_from_variant (variant);
   ASSERT_TRUE (variant != NULL);
   ASSERT_TRUE (device != NULL);
@@ -221,6 +224,7 @@ TEST_F(DeviceTest, NewFromVariant)
   ASSERT_STREQ ("/object/path", indicator_power_device_get_object_path(device));
   ASSERT_EQ (50, int(indicator_power_device_get_percentage(device)));
   ASSERT_EQ (30, indicator_power_device_get_time(device));
+  ASSERT_TRUE (indicator_power_device_get_power_supply(device));
 
   // cleanup
   g_object_unref (device);
@@ -709,26 +713,27 @@ TEST_F(DeviceTest, ChoosePrimary)
     UpDeviceState state;
     guint64 time;
     double percentage;
+    gboolean power_supply;
   };
 
   const Description descriptions[] = {
-    { "/some/path/d0", UP_DEVICE_KIND_BATTERY,    UP_DEVICE_STATE_DISCHARGING,   10,  60.0 }, // 0
-    { "/some/path/d1", UP_DEVICE_KIND_BATTERY,    UP_DEVICE_STATE_DISCHARGING,   20,  80.0 }, // 1
-    { "/some/path/d2", UP_DEVICE_KIND_BATTERY,    UP_DEVICE_STATE_DISCHARGING,   30, 100.0 }, // 2
+    { "/some/path/d0", UP_DEVICE_KIND_BATTERY,    UP_DEVICE_STATE_DISCHARGING,   10,  60.0, TRUE },  // 0
+    { "/some/path/d1", UP_DEVICE_KIND_BATTERY,    UP_DEVICE_STATE_DISCHARGING,   20,  80.0, TRUE },  // 1
+    { "/some/path/d2", UP_DEVICE_KIND_BATTERY,    UP_DEVICE_STATE_DISCHARGING,   30, 100.0, TRUE },  // 2
 
-    { "/some/path/c0", UP_DEVICE_KIND_BATTERY,    UP_DEVICE_STATE_CHARGING,      10,  60.0 }, // 3
-    { "/some/path/c1", UP_DEVICE_KIND_BATTERY,    UP_DEVICE_STATE_CHARGING,      20,  80.0 }, // 4
-    { "/some/path/c2", UP_DEVICE_KIND_BATTERY,    UP_DEVICE_STATE_CHARGING,      30, 100.0 }, // 5
+    { "/some/path/c0", UP_DEVICE_KIND_BATTERY,    UP_DEVICE_STATE_CHARGING,      10,  60.0, TRUE },  // 3
+    { "/some/path/c1", UP_DEVICE_KIND_BATTERY,    UP_DEVICE_STATE_CHARGING,      20,  80.0, TRUE },  // 4
+    { "/some/path/c2", UP_DEVICE_KIND_BATTERY,    UP_DEVICE_STATE_CHARGING,      30, 100.0, TRUE },  // 5
 
-    { "/some/path/f0", UP_DEVICE_KIND_BATTERY,    UP_DEVICE_STATE_FULLY_CHARGED,  0, 100.0 }, // 6
-    { "/some/path/m0", UP_DEVICE_KIND_MOUSE,      UP_DEVICE_STATE_DISCHARGING,   20,  80.0 }, // 7
-    { "/some/path/m1", UP_DEVICE_KIND_MOUSE,      UP_DEVICE_STATE_FULLY_CHARGED,  0, 100.0 }, // 8
-    { "/some/path/pw", UP_DEVICE_KIND_LINE_POWER, UP_DEVICE_STATE_UNKNOWN,        0,   0.0 }  // 9
+    { "/some/path/f0", UP_DEVICE_KIND_BATTERY,    UP_DEVICE_STATE_FULLY_CHARGED,  0, 100.0, TRUE },  // 6
+    { "/some/path/m0", UP_DEVICE_KIND_MOUSE,      UP_DEVICE_STATE_DISCHARGING,   20,  80.0, FALSE }, // 7
+    { "/some/path/m1", UP_DEVICE_KIND_MOUSE,      UP_DEVICE_STATE_FULLY_CHARGED,  0, 100.0, FALSE }, // 8
+    { "/some/path/pw", UP_DEVICE_KIND_LINE_POWER, UP_DEVICE_STATE_UNKNOWN,        0,   0.0, TRUE }   // 9
   };
 
   std::vector<IndicatorPowerDevice*> devices;
   for(const auto& desc : descriptions)
-    devices.push_back(indicator_power_device_new(desc.path, desc.kind, desc.percentage, desc.state, time_t(desc.time)));
+    devices.push_back(indicator_power_device_new(desc.path, desc.kind, desc.percentage, desc.state, time_t(desc.time), desc.power_supply));
 
   const struct {
     std::vector<unsigned int> device_indices;
@@ -736,29 +741,26 @@ TEST_F(DeviceTest, ChoosePrimary)
   } tests[] = {
 
     { { 0 }, descriptions[0] }, // 1 discharging
-    { { 0, 1 },    { nullptr, UP_DEVICE_KIND_BATTERY, UP_DEVICE_STATE_DISCHARGING, 20, 70.0 } }, // 2 discharging
-    { { 1, 2 },    { nullptr, UP_DEVICE_KIND_BATTERY, UP_DEVICE_STATE_DISCHARGING, 30, 90.0 } }, // 2 discharging
-    { { 0, 1, 2 }, { nullptr, UP_DEVICE_KIND_BATTERY, UP_DEVICE_STATE_DISCHARGING, 30, 80.0 } }, // 3 discharging
+    { { 0, 1 },       { nullptr, UP_DEVICE_KIND_BATTERY, UP_DEVICE_STATE_DISCHARGING, 20, 70.0, TRUE } }, // 2 discharging
+    { { 1, 2 },       { nullptr, UP_DEVICE_KIND_BATTERY, UP_DEVICE_STATE_DISCHARGING, 30, 90.0, TRUE } }, // 2 discharging
+    { { 0, 1, 2 },    { nullptr, UP_DEVICE_KIND_BATTERY, UP_DEVICE_STATE_DISCHARGING, 30, 80.0, TRUE } }, // 3 discharging
+    { { 0, 1, 2, 7 }, { nullptr, UP_DEVICE_KIND_BATTERY, UP_DEVICE_STATE_DISCHARGING, 30, 80.0, TRUE } }, // ignore mouse
 
     { { 3 }, descriptions[3] }, // 1 charging
-    { { 3, 4 },    { nullptr, UP_DEVICE_KIND_BATTERY, UP_DEVICE_STATE_CHARGING, 20, 70.0 } }, // 2 charging
-    { { 4, 5 },    { nullptr, UP_DEVICE_KIND_BATTERY, UP_DEVICE_STATE_CHARGING, 30, 90.0 } }, // 2 charging
-    { { 3, 4, 5 }, { nullptr, UP_DEVICE_KIND_BATTERY, UP_DEVICE_STATE_CHARGING, 30, 80.0 } }, // 3 charging
+    { { 3, 4 },       { nullptr, UP_DEVICE_KIND_BATTERY, UP_DEVICE_STATE_CHARGING, 20, 70.0, TRUE } }, // 2 charging
+    { { 4, 5 },       { nullptr, UP_DEVICE_KIND_BATTERY, UP_DEVICE_STATE_CHARGING, 30, 90.0, TRUE } }, // 2 charging
+    { { 3, 4, 5 },    { nullptr, UP_DEVICE_KIND_BATTERY, UP_DEVICE_STATE_CHARGING, 30, 80.0, TRUE } }, // 3 charging
+    { { 3, 4, 5, 8 }, { nullptr, UP_DEVICE_KIND_BATTERY, UP_DEVICE_STATE_CHARGING, 30, 80.0, TRUE } }, // ignore mouse
 
     { { 6 }, descriptions[6] }, // 1 charged
-    { { 6, 0 },    { nullptr, UP_DEVICE_KIND_BATTERY, UP_DEVICE_STATE_DISCHARGING, 10, 80.0 } }, // 1 charged, 1 discharging
-    { { 6, 3 },    { nullptr, UP_DEVICE_KIND_BATTERY, UP_DEVICE_STATE_CHARGING,    10, 80.0 } }, // 1 charged, 1 charging
-    { { 6, 0, 3 }, { nullptr, UP_DEVICE_KIND_BATTERY, UP_DEVICE_STATE_DISCHARGING, 10, 73.3 } }, // 1 charged, 1 charging, 1 discharging
+    { { 6, 0 },          { nullptr, UP_DEVICE_KIND_BATTERY, UP_DEVICE_STATE_DISCHARGING, 10, 80.0, TRUE } }, // 1 charged, 1 discharging
+    { { 6, 3 },          { nullptr, UP_DEVICE_KIND_BATTERY, UP_DEVICE_STATE_CHARGING,    10, 80.0, TRUE } }, // 1 charged, 1 charging
+    { { 6, 0, 3 },       { nullptr, UP_DEVICE_KIND_BATTERY, UP_DEVICE_STATE_DISCHARGING, 10, 73.3, TRUE } }, // 1 charged, 1 charging, 1 discharging
+    { { 6, 0, 3, 7, 8 }, { nullptr, UP_DEVICE_KIND_BATTERY, UP_DEVICE_STATE_DISCHARGING, 10, 73.3, TRUE } }, // ignore mouse
 
-    { { 0, 7 }, descriptions[0] }, // 1 discharging battery, 1 discharging mouse. pick the one with the least time left.
-    { { 2, 7 }, descriptions[7] }, // 1 discharging battery, 1 discharging mouse. pick the one with the least time left.
-
-    { { 0, 8 }, descriptions[0] }, // 1 discharging battery, 1 fully-charged mouse. pick the one that's discharging.
-    { { 6, 7 }, descriptions[7] }, // 1 discharging mouse, 1 fully-charged battery. pick the one that's discharging.
-
-    { { 0, 9 }, descriptions[0] }, // everything comes before power lines
-    { { 3, 9 }, descriptions[3] },
-    { { 7, 9 }, descriptions[7] }
+    { { 0, 9 }, descriptions[0] }, // everything comes before power lines except devices without power supply
+    { { 3, 9 }, descriptions[3] }, 
+    { { 7, 9 }, descriptions[9] },
   };
   
   for(const auto& test : tests)
@@ -775,6 +777,7 @@ TEST_F(DeviceTest, ChoosePrimary)
     EXPECT_EQ(x.state, indicator_power_device_get_state(primary));
     EXPECT_EQ(x.time, indicator_power_device_get_time(primary));
     EXPECT_EQ(int(ceil(x.percentage)), int(ceil(indicator_power_device_get_percentage(primary))));
+    EXPECT_EQ(x.power_supply, indicator_power_device_get_power_supply(primary));
     g_object_unref(primary);
 
     // reverse the list and repeat the test
@@ -786,6 +789,7 @@ TEST_F(DeviceTest, ChoosePrimary)
     EXPECT_EQ(x.state, indicator_power_device_get_state(primary));
     EXPECT_EQ(x.time, indicator_power_device_get_time(primary));
     EXPECT_EQ(int(ceil(x.percentage)), int(ceil(indicator_power_device_get_percentage(primary))));
+    EXPECT_EQ(x.power_supply, indicator_power_device_get_power_supply(primary));
     g_object_unref(primary);
 
     // cleanup
