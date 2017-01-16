@@ -1,3 +1,9 @@
+indicator-power (12.10.6+17.04.20161201-0ubuntu2) zesty; urgency=medium
+
+  * Make device with power supply has higher sorting priority. (LP: #1100546)
+
+ -- Shih-Yuan Lee (FourDollars) <fourdollars@ubuntu.com>  Thu, 05 Jan 2017 11:54:01 +0800
+
 indicator-power (12.10.6+17.04.20161201-0ubuntu1) zesty; urgency=medium
 
   [ Michael Terry ]
