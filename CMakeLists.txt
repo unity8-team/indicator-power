@@ -13,9 +13,6 @@ add_definitions(
   -DLOW_BATTERY_SOUND="Low battery.ogg"
 )
 
-option (enable_tests "Build the package's automatic tests." ON)
-option (enable_lcov "Generate lcov code coverage reports." ON)
-
 set(SERVICE_LIB "indicatorpowerservice")
 set(SERVICE_EXEC "indicator-power-service")
 add_definitions(-DSERVICE_EXEC="${SERVICE_EXEC}")
@@ -59,9 +56,6 @@ add_custom_target (dist
                    COMMAND bzr export --root=${ARCHIVE_NAME} ${CMAKE_BINARY_DIR}/${ARCHIVE_NAME}.tar.gz
                    WORKING_DIRECTORY ${CMAKE_SOURCE_DIR})
 
-add_custom_target (clean-coverage
-                   COMMAND find ${CMAKE_BINARY_DIR} -name '*.gcda' | xargs rm -f)
-
 add_custom_target (cppcheck COMMAND cppcheck --enable=all -q --error-exitcode=2 --inline-suppr
                    ${CMAKE_SOURCE_DIR}/src
                    ${CMAKE_SOURCE_DIR}/tests)
@@ -83,19 +77,17 @@ set(C_WARNING_ARGS "${C_WARNING_ARGS} -Wno-missing-field-initializers") # GActio
 include_directories (${CMAKE_CURRENT_SOURCE_DIR}/include)
 include_directories (${CMAKE_CURRENT_BINARY_DIR}/include)
 
-# testing & coverage
-if (${enable_tests})
-  enable_testing ()
-  if (${enable_lcov})
-    include(GCov)
-  endif ()
-endif ()
-
 # actually build things
 add_subdirectory(src)
 add_subdirectory(data)
 add_subdirectory(po)
-if (${enable_tests})
-  add_subdirectory(tests)
-endif ()
 
+# testing & coverage
+enable_testing ()
+add_subdirectory(tests)
+find_package(CoverageReport)
+ENABLE_COVERAGE_REPORT(
+  TARGETS ${SERVICE_LIB} ${SERVICE_EXEC}
+  TESTS ${COVERAGE_TEST_TARGETS}
+  FILTER /usr/include ${CMAKE_BINARY_DIR}/*
+)
