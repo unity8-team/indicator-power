@@ -4,6 +4,8 @@ Priority: optional
 Maintainer: Ubuntu Core Developers <ubuntu-devel-discuss@lists.ubuntu.com>
 Build-Depends: cmake,
                cmake-extras (>= 0.10),
+               gcovr,
+               lcov,
                libnotify-dev (>= 0.7.6),
                libglib2.0-dev (>= 2.36),
                libgudev-1.0-dev,
