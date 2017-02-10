@@ -1,3 +1,12 @@
+indicator-power (12.10.6+17.04.20170210-0ubuntu1) zesty; urgency=medium
+
+  * Remove old autostart files.
+  * Use gmock module from cmake-extras.
+  * Use coverage support from cmake-extras.
+  * Use intltool support from cmake-extras.
+
+ -- Rodney Dawes <rodney.dawes@canonical.com>  Fri, 10 Feb 2017 17:09:49 +0000
+
 indicator-power (12.10.6+17.04.20170116-0ubuntu1) zesty; urgency=medium
 
   [ Shih-Yuan Lee (FourDollars) ]
