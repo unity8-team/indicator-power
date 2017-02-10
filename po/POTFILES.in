@@ -1,4 +1,0 @@
-data/com.canonical.indicator.power.gschema.xml.in
-src/device.c
-src/notifier.c
-src/service.c

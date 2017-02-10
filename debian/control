@@ -4,7 +4,10 @@ Priority: optional
 Maintainer: Ubuntu Core Developers <ubuntu-devel-discuss@lists.ubuntu.com>
 Build-Depends: cmake,
                cmake-extras (>= 0.10),
+               debhelper (>= 9),
+               dh-translations,
                gcovr,
+               intltool,
                lcov,
                libnotify-dev (>= 0.7.6),
                libglib2.0-dev (>= 2.36),
@@ -13,10 +16,6 @@ Build-Depends: cmake,
                python:any,
 # for com.ubuntu.touch.AccountsService.Sound.xml
                accountsservice-ubuntu-schemas,
-# for packaging
-               debhelper (>= 9),
-               dh-translations,
-               intltool,
 # for tests
                googletest | google-mock,
                python3-dbusmock,
