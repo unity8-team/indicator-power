@@ -3,6 +3,7 @@ Section: gnome
 Priority: optional
 Maintainer: Ubuntu Core Developers <ubuntu-devel-discuss@lists.ubuntu.com>
 Build-Depends: cmake,
+               cmake-extras (>= 0.10),
                libnotify-dev (>= 0.7.6),
                libglib2.0-dev (>= 2.36),
                libgudev-1.0-dev,
@@ -15,7 +16,7 @@ Build-Depends: cmake,
                dh-translations,
                intltool,
 # for tests
-               libgtest-dev,
+               googletest | google-mock,
                python3-dbusmock,
                dbus-test-runner,
                libdbustest1-dev,
