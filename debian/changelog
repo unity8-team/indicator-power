@@ -1,3 +1,9 @@
+indicator-power (12.10.6+17.04.20170322-0ubuntu1) zesty; urgency=medium
+
+  * no change rebuild
+
+ -- Ken VanDine <ken.vandine@canonical.com>  Wed, 22 Mar 2017 18:28:10 +0000
+
 indicator-power (12.10.6+17.04.20170210-0ubuntu1) zesty; urgency=medium
 
   * Remove old autostart files.
