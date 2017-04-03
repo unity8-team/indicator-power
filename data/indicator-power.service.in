@@ -1,8 +1,11 @@
 [Unit]
 Description=Indicator Power
 PartOf=graphical-session.target
-After=indicators-pre.target
+PartOf=indicators.target
 
 [Service]
 ExecStart=@pkglibexecdir@/indicator-power-service
 Restart=on-failure
+
+[Install]
+WantedBy=indicators.target
